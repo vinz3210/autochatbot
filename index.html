@@ -332,6 +332,7 @@
       background: linear-gradient(135deg, var(--accent), #bf7aff);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
 
     .header-right {
@@ -837,6 +838,50 @@
 
     .monitor-bar .status-text {
       flex: 1;
+    }
+
+    /* Multi-response styles */
+    .responses-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-top: 0.35rem;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .response-row {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    .response-text-input {
+      flex: 1;
+    }
+
+    .response-weight-input {
+      width: 70px !important;
+      text-align: center;
+      font-weight: 600;
+      color: var(--accent) !important;
+    }
+
+    .btn-add-response {
+      align-self: flex-start;
+      margin-top: 0.25rem;
+      padding: 0.3rem 0.6rem !important;
+      font-size: 0.72rem !important;
+      background: var(--surface3);
+    }
+
+    .btn-add-response:hover {
+      background: var(--border);
+    }
+
+    .weight-label {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      margin-right: -0.25rem;
     }
 
     /* Empty triggers */
@@ -1475,9 +1520,21 @@
                   onchange="updateTrigger(${i}, 'phrase', this.value)">
               </div>
               <div class="trigger-field" style="flex:1;">
-                <label>Response (use {count} or {username})</label>
-                <input type="text" value="${escapeAttr(t.response)}" placeholder="Bot response text…"
-                  onchange="updateTrigger(${i}, 'response', this.value)">
+                <label>Responses (use {count} or {username})</label>
+                <div class="responses-container">
+                  ${(t.responses && t.responses.length > 0 ? t.responses : [{ text: t.response || '', weight: 1 }]).map((r, ri) => `
+                    <div class="response-row">
+                      <input type="text" class="response-text-input" value="${escapeAttr(r.text)}" 
+                        placeholder="Bot response text…" onchange="updateResponse(${i}, ${ri}, 'text', this.value)">
+                      <span class="weight-label">W:</span>
+                      <input type="number" class="response-weight-input" value="${r.weight || 1}" step="0.1" min="0"
+                        onchange="updateResponse(${i}, ${ri}, 'weight', parseFloat(this.value) || 0)" title="Relative Weight/Probability">
+                      <button class="btn btn-icon btn-ghost" onclick="removeResponse(${i}, ${ri})" title="Remove response" 
+                        style="width:24px; height:24px; font-size:0.75rem; border-radius:4px;">×</button>
+                    </div>
+                  `).join('')}
+                </div>
+                <button class="btn btn-add-response" onclick="addResponse(${i})">+ Add Random Alternative</button>
               </div>
             </div>
             <div class="trigger-row" style="margin-top:0.6rem;">
@@ -1559,6 +1616,7 @@
         useCounter: false,
         counterStart: 0,
         counterValue: 0,
+        responses: [],
       });
       saveProfiles();
       renderTriggerEditor();
@@ -1584,6 +1642,54 @@
       saveProfiles();
       // Only re-render if counter visibility changed
       if (field === 'useCounter') renderTriggerEditor();
+    }
+
+    function addResponse(triggerIndex) {
+      if (!selectedChannel) return;
+      const t = profiles[selectedChannel].triggers[triggerIndex];
+      if (!t) return;
+
+      // Migration: carry over old single response if responses array is empty
+      if (!t.responses || t.responses.length === 0) {
+        t.responses = [{ text: t.response || '', weight: 1 }];
+      }
+
+      t.responses.push({ text: '', weight: 1 });
+      saveProfiles();
+      renderTriggerEditor();
+    }
+
+    function removeResponse(triggerIndex, responseIndex) {
+      if (!selectedChannel) return;
+      const t = profiles[selectedChannel].triggers[triggerIndex];
+      if (!t) return;
+
+      if (!t.responses) return;
+      t.responses.splice(responseIndex, 1);
+
+      // If we cleared all responses, we might want to keep one empty one or just leave it
+      // But we'll just save and re-render.
+      saveProfiles();
+      renderTriggerEditor();
+    }
+
+    function updateResponse(triggerIndex, responseIndex, field, value) {
+      if (!selectedChannel) return;
+      const t = profiles[selectedChannel].triggers[triggerIndex];
+      if (!t) return;
+
+      if (!t.responses || t.responses.length === 0) {
+        t.responses = [{ text: t.response || '', weight: 1 }];
+      }
+
+      if (t.responses[responseIndex]) {
+        t.responses[responseIndex][field] = value;
+        // Keep the old 'response' field in sync for the first item (optional, for safety)
+        if (responseIndex === 0 && field === 'text') {
+          t.response = value;
+        }
+      }
+      saveProfiles();
     }
 
     function togglePauseChannel() {
@@ -1858,7 +1964,7 @@
             `<span class="log-channel">#${channel}</span>`
           );
 
-          let response = trigger.response || '';
+          let response = selectResponse(trigger);
           // Replace placeholders
           response = response.replace(/\{username\}/gi, sender);
 
@@ -1895,6 +2001,26 @@
           break; // Only trigger the first match
         }
       }
+    }
+
+    function selectResponse(trigger) {
+      if (!trigger.responses || trigger.responses.length === 0) {
+        return trigger.response || '';
+      }
+
+      const responses = trigger.responses.filter(r => r.text.trim() !== '');
+      if (responses.length === 0) return '';
+
+      const totalWeight = responses.reduce((sum, r) => sum + (parseFloat(r.weight) || 0), 0);
+      if (totalWeight <= 0) return responses[0].text;
+
+      let random = Math.random() * totalWeight;
+      for (const r of responses) {
+        const weight = parseFloat(r.weight) || 0;
+        if (random < weight) return r.text;
+        random -= weight;
+      }
+      return responses[0].text;
     }
 
     // ── Activity Log ──
