@@ -1,0 +1,1995 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0e0e10">
+  <title>Twitch Chat Auto-Chatter</title>
+  <meta name="description"
+    content="Monitor Twitch channels for trigger phrases and automatically send configured responses.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+    rel="stylesheet">
+  <script defer src="https://u.vinz3210.gg/script.js" data-website-id="99147947-df48-42e8-b2d8-80def4b1d1c1"
+    data-domains="autochatbot.vinz3210.gg"></script>
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #0e0e10;
+      --surface: #18181b;
+      --surface2: #1f1f23;
+      --surface3: #26262c;
+      --border: #2f2f35;
+      --border-hover: #3f3f45;
+      --accent: #9147ff;
+      --accent-hover: #772ce8;
+      --accent-soft: rgba(145, 71, 255, 0.15);
+      --accent-glow: rgba(145, 71, 255, 0.3);
+      --text: #efeff1;
+      --text-dim: #adadb8;
+      --text-muted: #76768a;
+      --success: #00e676;
+      --success-soft: rgba(0, 230, 118, 0.12);
+      --warning: #ffab00;
+      --warning-soft: rgba(255, 171, 0, 0.12);
+      --danger: #ff5252;
+      --danger-soft: rgba(255, 82, 82, 0.12);
+      --radius: 8px;
+      --radius-lg: 12px;
+      --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+      --transition: 0.2s ease;
+    }
+
+    body {
+      font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-dim);
+    }
+
+    /* ── Animations ── */
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes slideInLeft {
+      from {
+        opacity: 0;
+        transform: translateX(-12px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @keyframes slideInRight {
+      from {
+        opacity: 0;
+        transform: translateX(12px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.5;
+      }
+    }
+
+    @keyframes glow {
+
+      0%,
+      100% {
+        box-shadow: 0 0 8px var(--accent-glow);
+      }
+
+      50% {
+        box-shadow: 0 0 20px var(--accent-glow);
+      }
+    }
+
+    /* ── Login Screen ── */
+    .login-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 3rem;
+      width: 100%;
+      max-width: 420px;
+      text-align: center;
+      animation: fadeIn 0.5s ease;
+      box-shadow: var(--shadow);
+    }
+
+    .login-card .logo {
+      font-size: 2.2rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--accent), #bf7aff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.5px;
+      overflow: visible;
+    }
+
+    .login-card .subtitle {
+      color: var(--text-dim);
+      font-size: 0.95rem;
+      margin-bottom: 2.5rem;
+      line-height: 1.5;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.7rem 1.25rem;
+      border: none;
+      border-radius: var(--radius);
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition);
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-twitch {
+      background: var(--accent);
+      color: white;
+      width: 100%;
+      padding: 0.9rem 1.25rem;
+      font-size: 1rem;
+      font-weight: 700;
+      border-radius: var(--radius);
+      letter-spacing: 0.3px;
+    }
+
+    .btn-twitch:hover {
+      background: var(--accent-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px var(--accent-glow);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-dim);
+      border: 1px solid var(--border);
+      padding: 0.5rem 0.9rem;
+      font-size: 0.82rem;
+    }
+
+    .btn-ghost:hover {
+      color: var(--text);
+      border-color: var(--border-hover);
+      background: var(--surface2);
+    }
+
+    .btn-danger {
+      background: var(--danger-soft);
+      color: var(--danger);
+      border: 1px solid rgba(255, 82, 82, 0.25);
+    }
+
+    .btn-danger:hover {
+      background: rgba(255, 82, 82, 0.25);
+    }
+
+    .btn-success {
+      background: var(--success-soft);
+      color: var(--success);
+      border: 1px solid rgba(0, 230, 118, 0.25);
+    }
+
+    .btn-success:hover {
+      background: rgba(0, 230, 118, 0.25);
+    }
+
+    .btn-warning {
+      background: var(--warning-soft);
+      color: var(--warning);
+      border: 1px solid rgba(255, 171, 0, 0.25);
+    }
+
+    .btn-warning:hover {
+      background: rgba(255, 171, 0, 0.25);
+    }
+
+    .trigger-card.disabled {
+      opacity: 0.5;
+      filter: grayscale(0.5);
+    }
+
+    .channel-item.paused .channel-name {
+      opacity: 0.5;
+      text-decoration: line-through;
+    }
+
+    .paused-badge {
+      font-size: 0.65rem;
+      color: var(--warning);
+      background: var(--warning-soft);
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+      margin-left: 0.4rem;
+      font-weight: 800;
+    }
+
+    .btn-icon {
+      width: 32px;
+      height: 32px;
+      padding: 0;
+      border-radius: 6px;
+      font-size: 1rem;
+    }
+
+    /* ── Dashboard ── */
+    .dashboard {
+      display: none;
+      height: 100vh;
+      flex-direction: column;
+    }
+
+    .dashboard.active {
+      display: flex;
+    }
+
+    .login-screen.active {
+      display: flex;
+    }
+
+    .login-screen {
+      display: none;
+    }
+
+    /* Header */
+    .dash-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.65rem 1.25rem;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      z-index: 10;
+    }
+
+    .dash-header .brand {
+      font-size: 1.15rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), #bf7aff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .connection-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      transition: background var(--transition);
+    }
+
+    .connection-dot.connected {
+      background: var(--success);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .connection-dot.connecting {
+      background: var(--warning);
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    .user-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.75rem;
+      background: var(--surface2);
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-dim);
+    }
+
+    /* Body layout */
+    .dash-body {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 280px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .sidebar-header {
+      padding: 1rem 1rem 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .sidebar-header h2 {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-dim);
+    }
+
+    .channel-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 0.5rem;
+    }
+
+    .channel-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.6rem 0.75rem;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: all var(--transition);
+      margin-bottom: 2px;
+      animation: slideInLeft 0.3s ease;
+    }
+
+    .channel-item:hover {
+      background: var(--surface2);
+    }
+
+    .channel-item.active {
+      background: var(--accent-soft);
+      border: 1px solid rgba(145, 71, 255, 0.25);
+    }
+
+    .channel-item.active .channel-name {
+      color: var(--text);
+    }
+
+    .channel-info {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      min-width: 0;
+    }
+
+    .channel-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--surface3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--accent);
+      flex-shrink: 0;
+      text-transform: uppercase;
+    }
+
+    .channel-name {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .channel-trigger-count {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      background: var(--surface3);
+      padding: 0.15rem 0.5rem;
+      border-radius: 10px;
+      flex-shrink: 0;
+    }
+
+    .channel-remove {
+      opacity: 0;
+      transition: opacity var(--transition);
+    }
+
+    .channel-item:hover .channel-remove {
+      opacity: 1;
+    }
+
+    /* Add channel */
+    .add-channel-area {
+      padding: 0.75rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .add-channel-row {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .add-channel-row input {
+      flex: 1;
+      padding: 0.5rem 0.75rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.85rem;
+      transition: border-color var(--transition);
+    }
+
+    .add-channel-row input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .add-channel-row input::placeholder {
+      color: var(--text-muted);
+    }
+
+    /* Main content */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    /* Trigger editor */
+    .trigger-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem;
+    }
+
+    .no-channel-selected {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--text-muted);
+      font-size: 1rem;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .no-channel-selected .icon {
+      font-size: 2.5rem;
+      opacity: 0.4;
+    }
+
+    .triggers-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.25rem;
+    }
+
+    .triggers-header h2 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .triggers-header h2 .hash {
+      color: var(--accent);
+      font-weight: 800;
+    }
+
+    .trigger-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem;
+      margin-bottom: 0.75rem;
+      transition: all var(--transition);
+      animation: fadeIn 0.3s ease;
+    }
+
+    .trigger-card:hover {
+      border-color: var(--border-hover);
+    }
+
+    .trigger-row {
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-start;
+    }
+
+    .trigger-field {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .trigger-field label {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 0.35rem;
+    }
+
+    .trigger-field input,
+    .trigger-field textarea {
+      width: 100%;
+      padding: 0.55rem 0.75rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.88rem;
+      transition: border-color var(--transition);
+      resize: none;
+    }
+
+    .trigger-field input:focus,
+    .trigger-field textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .trigger-field input::placeholder,
+    .trigger-field textarea::placeholder {
+      color: var(--text-muted);
+    }
+
+    .trigger-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .counter-section {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .toggle-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      font-size: 0.82rem;
+      color: var(--text-dim);
+      user-select: none;
+    }
+
+    .toggle {
+      width: 36px;
+      height: 20px;
+      background: var(--surface3);
+      border-radius: 10px;
+      position: relative;
+      transition: background var(--transition);
+      border: 1px solid var(--border);
+      cursor: pointer;
+    }
+
+    .toggle.active {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .toggle::after {
+      content: '';
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: white;
+      top: 2px;
+      left: 2px;
+      transition: transform var(--transition);
+    }
+
+    .toggle.active::after {
+      transform: translateX(16px);
+    }
+
+    .counter-start {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .counter-start label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .counter-start input {
+      width: 65px;
+      padding: 0.3rem 0.5rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.82rem;
+      text-align: center;
+    }
+
+    .counter-start input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .counter-current {
+      font-size: 0.78rem;
+      color: var(--accent);
+      font-weight: 600;
+      padding: 0.2rem 0.5rem;
+      background: var(--accent-soft);
+      border-radius: 6px;
+    }
+
+    /* Activity log */
+    .activity-panel {
+      width: 320px;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .activity-header {
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .activity-header h3 {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-dim);
+    }
+
+    .activity-log {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.5rem;
+    }
+
+    .activity-empty {
+      padding: 2rem 1rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+
+    .log-entry {
+      padding: 0.5rem 0.65rem;
+      border-radius: 6px;
+      margin-bottom: 4px;
+      font-size: 0.82rem;
+      animation: slideInRight 0.25s ease;
+      line-height: 1.4;
+    }
+
+    .log-entry.match {
+      background: var(--accent-soft);
+      border-left: 3px solid var(--accent);
+    }
+
+    .log-entry.sent {
+      background: var(--success-soft);
+      border-left: 3px solid var(--success);
+    }
+
+    .log-entry.error {
+      background: var(--danger-soft);
+      border-left: 3px solid var(--danger);
+    }
+
+    .log-entry.info {
+      background: var(--warning-soft);
+      border-left: 3px solid var(--warning);
+    }
+
+    .log-entry.chat {
+      background: rgba(255, 255, 255, 0.03);
+      border-left: 3px solid var(--border);
+      color: var(--text-dim);
+      font-size: 0.78rem;
+    }
+
+    .log-time {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-right: 0.4rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .log-channel {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .log-user {
+      color: var(--warning);
+      font-weight: 600;
+    }
+
+    .log-phrase {
+      color: var(--text);
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.06);
+      padding: 0.05rem 0.35rem;
+      border-radius: 3px;
+    }
+
+    /* Monitoring status bar */
+    .monitor-bar {
+      padding: 0.5rem 1rem;
+      background: var(--surface2);
+      border-top: 1px solid var(--border);
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-shrink: 0;
+    }
+
+    .monitor-bar .status-text {
+      flex: 1;
+    }
+
+    /* Empty triggers */
+    .empty-triggers {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--text-muted);
+    }
+
+    .empty-triggers .icon {
+      font-size: 2rem;
+      margin-bottom: 0.75rem;
+      opacity: 0.4;
+    }
+
+    .empty-triggers p {
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .activity-panel {
+        display: none;
+      }
+    }
+
+    @media (max-width: 650px) {
+      .sidebar {
+        width: 220px;
+      }
+    }
+
+    /* ── Help Modal ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      padding: 2rem;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      max-width: 560px;
+      width: 100%;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+      transform: translateY(12px);
+      transition: transform 0.25s ease;
+    }
+
+    .modal-overlay.active .modal {
+      transform: translateY(0);
+    }
+
+    .modal h2 {
+      font-size: 1.2rem;
+      font-weight: 800;
+      margin-bottom: 1rem;
+      color: var(--text);
+    }
+
+    .modal h3 {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 1.25rem;
+      margin-bottom: 0.4rem;
+    }
+
+    .modal p,
+    .modal li {
+      font-size: 0.88rem;
+      color: var(--text-dim);
+      line-height: 1.6;
+    }
+
+    .modal ul {
+      padding-left: 1.25rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .modal li {
+      margin-bottom: 0.3rem;
+    }
+
+    .modal code {
+      background: var(--surface2);
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.82rem;
+      color: var(--accent);
+      font-family: 'Consolas', 'Monaco', monospace;
+    }
+
+    .modal-close {
+      float: right;
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-size: 1.3rem;
+      cursor: pointer;
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+      transition: all var(--transition);
+    }
+
+    .modal-close:hover {
+      background: var(--surface2);
+      color: var(--text);
+    }
+
+    .help-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 1px solid rgba(145, 71, 255, 0.4);
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--transition);
+      margin-left: 0.5rem;
+      vertical-align: middle;
+    }
+
+    .help-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .login-features {
+      text-align: left;
+      margin: 1.5rem 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .login-feature {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 0.82rem;
+      color: var(--text-dim);
+    }
+
+    .login-feature .feat-icon {
+      font-size: 1rem;
+      width: 24px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Login Screen -->
+  <div class="login-screen active" id="login-screen">
+    <div class="login-card">
+      <div class="logo">AutoChatbot</div>
+      <p class="subtitle">Auto-respond to Twitch chat commands</p>
+
+      <div class="login-features">
+        <div class="login-feature"><span class="feat-icon">📡</span> Monitor multiple channels at once</div>
+        <div class="login-feature"><span class="feat-icon">⚡</span> Set custom trigger phrases &amp; responses</div>
+        <div class="login-feature"><span class="feat-icon">🔢</span> Optional auto-incrementing counters</div>
+        <div class="login-feature"><span class="feat-icon">🔒</span> Restrict triggers to specific users</div>
+      </div>
+
+      <button class="btn btn-twitch" id="twitch-login-btn" onclick="loginWithTwitch()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <path
+            d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z" />
+        </svg>
+        Login with Twitch
+      </button>
+    </div>
+  </div>
+
+  <!-- Help Modal -->
+  <div class="modal-overlay" id="help-modal" onclick="if(event.target===this)closeHelp()">
+    <div class="modal">
+      <button class="modal-close" onclick="closeHelp()">&times;</button>
+      <p>AutoChatbot monitors Twitch chat channels in real-time and automatically sends responses when specific trigger
+        phrases are detected.</p>
+
+      <h3>Getting Started</h3>
+      <ul>
+        <li>Log in with your Twitch account to authorize chat reading &amp; sending</li>
+        <li>Add channels you want to monitor (e.g., your own channel)</li>
+        <li>Create triggers with a phrase and a response</li>
+        <li>Keep the page open &mdash; it runs as long as the tab is active</li>
+      </ul>
+
+      <h3>Trigger Phrases</h3>
+      <p>Set any text as a trigger (e.g., <code>!sun</code>). When someone types that exact phrase in chat, AutoChatbot
+        sends your configured response. Matching is case-insensitive.</p>
+
+      <h3>Allowed Users</h3>
+      <p>By default, anyone can activate a trigger. To restrict it, enter comma-separated usernames in the
+        <strong>Allowed Users</strong> field. Only those users will be able to trigger it &mdash; useful for preventing
+        spam.
+      </p>
+
+      <h3>Counter &amp; User Placeholders</h3>
+      <p>Use special placeholders in your response text:</p>
+      <ul>
+        <li><code>{count}</code> &mdash; Replaced with the current counter value (if enabled).</li>
+        <li><code>{username}</code> &mdash; Replaced with the name of the user who triggered the command.</li>
+      </ul>
+      <p>Example: response <code>Hello {username}, you are visitor #{count}!</code></p>
+
+      <h3>Storage</h3>
+      <p>All channels, triggers, and counter values are saved in your browser's local storage. They persist across page
+        refreshes and browser restarts.</p>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div class="dashboard" id="dashboard">
+
+    <!-- Header -->
+    <div class="dash-header">
+      <div class="brand">AUTOCHATBOT <button class="help-btn" onclick="openHelp()" title="How it works">?</button></div>
+      <div class="header-right">
+        <div class="connection-dot" id="conn-dot" title="Disconnected"></div>
+        <div class="user-badge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="opacity:0.6">
+            <path
+              d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12zm0 2.4c-3.3 0-9.8 1.6-9.8 4.9v2.4h19.6v-2.4c0-3.3-6.5-4.9-9.8-4.9z" />
+          </svg>
+          <span id="user-name">—</span>
+        </div>
+        <button class="btn btn-ghost" onclick="logout()" title="Logout">Logout</button>
+      </div>
+    </div>
+
+    <!-- Body -->
+    <div class="dash-body">
+
+      <!-- Sidebar: Channels -->
+      <div class="sidebar">
+        <div class="sidebar-header">
+          <h2>Channels</h2>
+        </div>
+        <div class="channel-list" id="channel-list">
+          <!-- populated dynamically -->
+        </div>
+        <div class="add-channel-area">
+          <div class="add-channel-row">
+            <input type="text" id="add-channel-input" placeholder="Channel name…" autocomplete="off"
+              onkeydown="if(event.key==='Enter') addChannel()">
+            <button class="btn btn-primary btn-icon" onclick="addChannel()" title="Add channel">+</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main: Triggers -->
+      <div class="main-content">
+        <div class="trigger-area" id="trigger-area">
+          <div class="no-channel-selected" id="no-channel-msg">
+            <div class="icon">📡</div>
+            <div>Select or add a channel to configure triggers</div>
+          </div>
+          <div id="trigger-editor" style="display:none;">
+            <div class="triggers-header">
+              <h2><span class="hash">#</span> <span id="selected-channel-name"></span></h2>
+              <div style="display:flex; gap:0.5rem;">
+                <button id="channel-pause-btn" class="btn" onclick="togglePauseChannel()"
+                  style="font-size:0.82rem; padding:0.45rem 0.9rem;"></button>
+                <button class="btn btn-primary" onclick="addTrigger()"
+                  style="font-size:0.82rem; padding:0.45rem 0.9rem;">+ Add Trigger</button>
+              </div>
+            </div>
+            <div id="trigger-list">
+              <!-- populated dynamically -->
+            </div>
+            <div class="empty-triggers" id="empty-triggers" style="display:none;">
+              <div class="icon">⚡</div>
+              <p>No triggers yet. Add one to get started!</p>
+            </div>
+          </div>
+        </div>
+        <div class="monitor-bar">
+          <div class="connection-dot" id="monitor-dot"></div>
+          <div class="status-text" id="monitor-status">Not connected</div>
+        </div>
+      </div>
+
+      <!-- Activity Log -->
+      <div class="activity-panel">
+        <div class="activity-header">
+          <h3>Activity Log</h3>
+          <button class="btn btn-ghost" onclick="clearLog()"
+            style="font-size:0.72rem; padding:0.3rem 0.6rem;">Clear</button>
+        </div>
+        <div class="activity-log" id="activity-log">
+          <div class="activity-empty" id="activity-empty">
+            Waiting for activity…<br>Triggers will appear here in real-time.
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // ── Help Modal ──
+    function openHelp() {
+      document.getElementById('help-modal').classList.add('active');
+    }
+    function closeHelp() {
+      document.getElementById('help-modal').classList.remove('active');
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeHelp(); });
+
+    // ── Constants ──
+    const TWITCH_CLIENT_ID = '8bg8a5nnibxhf2w9uq6oiv0m71plux';
+    const LS_TOKEN = 'ar_twitch_token';
+    const LS_USERNAME = 'ar_twitch_user';
+    const LS_PROFILES = 'ar_profiles';
+    const IRC_URL = 'wss://irc-ws.chat.twitch.tv:443';
+
+    // ── State ──
+    let accessToken = '';
+    let username = '';
+    let userId = ''; // Authenticated user's Twitch ID (for Helix API)
+    let userIdCache = {}; // channelName -> userId cache
+    let profiles = {}; // { channelName: { triggers: [ { phrase, response, useCounter, counterStart, counterValue } ] } }
+    let selectedChannel = null;
+    let ircSocket = null;
+    let ircConnected = false;
+    let joinedChannels = new Set();
+    let reconnectTimer = null;
+    let activityLog = [];
+    let lastSentMessages = {}; // channelName -> lastMsg (to avoid duplicate blocks)
+
+    // ── Init ──
+    window.addEventListener('DOMContentLoaded', () => {
+      checkOAuthReturn();
+    });
+
+    // ── OAuth ──
+    function loginWithTwitch() {
+      const redirectUri = window.location.origin + window.location.pathname;
+      const scopes = 'user:read:email chat:read chat:edit user:write:chat user:bot';
+      const authUrl = 'https://id.twitch.tv/oauth2/authorize'
+        + '?client_id=' + encodeURIComponent(TWITCH_CLIENT_ID)
+        + '&redirect_uri=' + encodeURIComponent(redirectUri)
+        + '&response_type=token'
+        + '&scope=' + encodeURIComponent(scopes)
+        + '&force_verify=true';
+      window.location.href = authUrl;
+    }
+
+    async function checkOAuthReturn() {
+      const hash = window.location.hash;
+      if (hash && hash.includes('access_token=')) {
+        const params = new URLSearchParams(hash.substring(1));
+        const token = params.get('access_token');
+        if (token) {
+          accessToken = token;
+          localStorage.setItem(LS_TOKEN, token);
+          history.replaceState(null, '', window.location.pathname + window.location.search);
+          await fetchUsername();
+          enterDashboard();
+          return;
+        }
+      }
+
+      // Check stored token
+      const stored = localStorage.getItem(LS_TOKEN);
+      const storedUser = localStorage.getItem(LS_USERNAME);
+      if (stored) {
+        accessToken = stored;
+        if (storedUser) username = storedUser;
+        // Validate token
+        try {
+          const res = await fetch('https://id.twitch.tv/oauth2/validate', {
+            headers: { 'Authorization': `OAuth ${accessToken}` }
+          });
+          if (res.ok) {
+            if (!username) await fetchUsername();
+            enterDashboard();
+            return;
+          } else {
+            // Token expired
+            localStorage.removeItem(LS_TOKEN);
+            localStorage.removeItem(LS_USERNAME);
+          }
+        } catch (e) {
+          // Offline, try anyway
+          if (username) {
+            enterDashboard();
+            return;
+          }
+        }
+      }
+
+      // Show login
+      showLogin();
+    }
+
+    async function fetchUsername() {
+      try {
+        const res = await fetch('https://api.twitch.tv/helix/users', {
+          headers: {
+            'Client-ID': TWITCH_CLIENT_ID,
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.data && data.data.length > 0) {
+            username = data.data[0].login;
+            userId = data.data[0].id;
+            localStorage.setItem(LS_USERNAME, username);
+            localStorage.setItem('ar_twitch_user_id', userId);
+            userIdCache[username.toLowerCase()] = userId;
+          }
+        }
+      } catch (e) {
+        console.warn('Could not fetch username:', e);
+      }
+    }
+
+    // Resolve a channel name to a Twitch user ID (cached)
+    async function resolveUserId(channelName) {
+      const key = channelName.toLowerCase();
+      if (userIdCache[key]) return userIdCache[key];
+      try {
+        const res = await fetch(`https://api.twitch.tv/helix/users?login=${encodeURIComponent(key)}`, {
+          headers: {
+            'Client-ID': TWITCH_CLIENT_ID,
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.data && data.data.length > 0) {
+            userIdCache[key] = data.data[0].id;
+            return data.data[0].id;
+          }
+        }
+      } catch (e) {
+        console.warn('Could not resolve user ID for:', channelName, e);
+      }
+      return null;
+    }
+
+    function logout() {
+      accessToken = '';
+      username = '';
+      localStorage.removeItem(LS_TOKEN);
+      localStorage.removeItem(LS_USERNAME);
+      disconnectIRC();
+      showLogin();
+    }
+
+    // ── Screens ──
+    function showLogin() {
+      document.getElementById('login-screen').classList.add('active');
+      document.getElementById('dashboard').classList.remove('active');
+    }
+
+    function enterDashboard() {
+      document.getElementById('login-screen').classList.remove('active');
+      document.getElementById('dashboard').classList.add('active');
+      document.getElementById('user-name').textContent = username || 'Connected';
+      // Restore userId from localStorage if needed
+      if (!userId) {
+        userId = localStorage.getItem('ar_twitch_user_id') || '';
+      }
+      loadProfiles();
+      renderChannelList();
+      connectIRC();
+    }
+
+    // ── Profiles (localStorage) ──
+    function loadProfiles() {
+      try {
+        const saved = localStorage.getItem(LS_PROFILES);
+        if (saved) profiles = JSON.parse(saved);
+      } catch (e) {
+        profiles = {};
+      }
+    }
+
+    function saveProfiles() {
+      localStorage.setItem(LS_PROFILES, JSON.stringify(profiles));
+    }
+
+    // ── Channel Management ──
+    function addChannel() {
+      const input = document.getElementById('add-channel-input');
+      const name = input.value.trim().toLowerCase().replace(/^#/, '');
+      if (!name) return;
+      if (profiles[name]) {
+        selectChannel(name);
+        input.value = '';
+        return;
+      }
+      profiles[name] = { triggers: [] };
+      saveProfiles();
+      renderChannelList();
+      selectChannel(name);
+      input.value = '';
+
+      // Join channel in IRC
+      if (ircConnected) {
+        joinChannel(name);
+      }
+    }
+
+    function removeChannel(name, event) {
+      event.stopPropagation();
+      if (!confirm(`Remove channel #${name} and all its triggers?`)) return;
+      delete profiles[name];
+      saveProfiles();
+      if (selectedChannel === name) {
+        selectedChannel = null;
+        renderTriggerEditor();
+      }
+      renderChannelList();
+      if (ircConnected) leaveChannel(name);
+    }
+
+    function selectChannel(name) {
+      selectedChannel = name;
+      renderChannelList();
+      renderTriggerEditor();
+    }
+
+    function renderChannelList() {
+      const container = document.getElementById('channel-list');
+      const channelNames = Object.keys(profiles);
+      if (channelNames.length === 0) {
+        container.innerHTML = '<div style="padding:1.5rem 0.75rem; text-align:center; color:var(--text-muted); font-size:0.82rem;">No channels added yet</div>';
+        return;
+      }
+      container.innerHTML = channelNames.map(name => {
+        const triggerCount = profiles[name].triggers.length;
+        const isActive = name === selectedChannel;
+        const isPaused = profiles[name].paused;
+        return `
+          <div class="channel-item ${isActive ? 'active' : ''} ${isPaused ? 'paused' : ''}" onclick="selectChannel('${name}')">
+            <div class="channel-info">
+              <div class="channel-icon">${name.charAt(0)}</div>
+              <div class="channel-name">${name}${isPaused ? '<span class="paused-badge">PAUSED</span>' : ''}</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:0.4rem;">
+              <span class="channel-trigger-count">${triggerCount}</span>
+              <button class="btn btn-icon btn-ghost channel-remove" onclick="removeChannel('${name}', event)" title="Remove">×</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ── Trigger Management ──
+    function renderTriggerEditor() {
+      const noMsg = document.getElementById('no-channel-msg');
+      const editor = document.getElementById('trigger-editor');
+
+      if (!selectedChannel || !profiles[selectedChannel]) {
+        noMsg.style.display = 'flex';
+        editor.style.display = 'none';
+        return;
+      }
+
+      noMsg.style.display = 'none';
+      editor.style.display = 'block';
+      document.getElementById('selected-channel-name').textContent = selectedChannel;
+
+      const triggers = profiles[selectedChannel].triggers;
+      const list = document.getElementById('trigger-list');
+      const empty = document.getElementById('empty-triggers');
+
+      if (triggers.length === 0) {
+        list.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+
+      empty.style.display = 'none';
+
+      // Update channel pause button
+      const pauseBtn = document.getElementById('channel-pause-btn');
+      if (profiles[selectedChannel].paused) {
+        pauseBtn.className = 'btn btn-success';
+        pauseBtn.innerHTML = '▶ Resume Channel';
+      } else {
+        pauseBtn.className = 'btn btn-warning';
+        pauseBtn.innerHTML = '⏸ Pause Channel';
+      }
+
+      list.innerHTML = triggers.map((t, i) => {
+        const counterClass = t.useCounter ? 'active' : '';
+        const anywhereClass = t.matchAnywhere ? 'active' : '';
+        const enabledClass = (t.enabled !== false) ? 'active' : '';
+        const cardDisabled = (t.enabled === false) ? 'disabled' : '';
+        const counterDisplay = t.useCounter ? '' : 'display:none;';
+        return `
+          <div class="trigger-card ${cardDisabled}" id="trigger-${i}">
+            <div class="trigger-row">
+              <div class="trigger-field" style="flex:0.4; min-width:120px;">
+                <label>Trigger Phrase</label>
+                <input type="text" value="${escapeAttr(t.phrase)}" placeholder="!command"
+                  onchange="updateTrigger(${i}, 'phrase', this.value)">
+              </div>
+              <div class="trigger-field" style="flex:1;">
+                <label>Response (use {count} or {username})</label>
+                <input type="text" value="${escapeAttr(t.response)}" placeholder="Bot response text…"
+                  onchange="updateTrigger(${i}, 'response', this.value)">
+              </div>
+            </div>
+            <div class="trigger-row" style="margin-top:0.6rem;">
+              <div class="trigger-field" style="flex:1;">
+                <label>Cooldown (seconds)</label>
+                <input type="number" value="${t.cooldown || 0}" min="0" placeholder="0"
+                  onchange="updateTrigger(${i}, 'cooldown', parseInt(this.value) || 0)">
+              </div>
+              <div class="trigger-field" style="flex:1;">
+                <label>Delay (seconds)</label>
+                <input type="number" value="${t.delay || 0}" min="0" placeholder="0"
+                  onchange="updateTrigger(${i}, 'delay', parseInt(this.value) || 0)">
+              </div>
+            </div>
+            <div class="trigger-row" style="margin-top:0.6rem;">
+              <div class="trigger-field">
+                <label>Allowed Users <span style="font-weight:400; opacity:0.6;">(comma-separated, empty = everyone)</span></label>
+                <input type="text" value="${escapeAttr(t.allowedUsers || '')}" placeholder="user1, user2, user3"
+                  onchange="updateTrigger(${i}, 'allowedUsers', this.value)">
+              </div>
+            </div>
+            <div class="trigger-row" style="margin-top:0.6rem;">
+              <div class="trigger-field">
+                <label>Disallowed Users <span style="font-weight:400; opacity:0.6;">(ignore these accounts)</span></label>
+                <input type="text" value="${escapeAttr(t.disallowedUsers || '')}" placeholder="bot1, troll2"
+                  onchange="updateTrigger(${i}, 'disallowedUsers', this.value)">
+              </div>
+            </div>
+            <div class="trigger-row" style="margin-top:0.6rem; opacity:0.75;">
+              <div class="trigger-field">
+                <div style="font-size:0.7rem; color:var(--text-muted); display:flex; gap:1rem;">
+                  <span><code style="color:var(--accent);">{count}</code> &rarr; Current count</span>
+                  <span><code style="color:var(--accent);">{username}</code> &rarr; Sender's name</span>
+                </div>
+              </div>
+            </div>
+            <div class="trigger-bottom">
+              <div class="counter-section">
+                <div class="toggle-wrapper" onclick="toggleTriggerEnabled(${i})">
+                  <div class="toggle ${enabledClass}"></div>
+                  <span>Active</span>
+                </div>
+                <div class="toggle-wrapper" onclick="toggleCounter(${i})">
+                  <div class="toggle ${counterClass}"></div>
+                  <span>Counter</span>
+                </div>
+                <div class="toggle-wrapper" onclick="toggleMatchAnywhere(${i})" title="Trigger if word is anywhere in message">
+                  <div class="toggle ${t.matchAnywhere ? 'active' : ''}"></div>
+                  <span>Anywhere</span>
+                </div>
+                <div class="counter-start" style="${counterDisplay}" id="counter-opts-${i}">
+                  <label>Start:</label>
+                  <input type="number" value="${t.counterStart || 0}"
+                    onchange="updateTrigger(${i}, 'counterStart', parseInt(this.value) || 0)">
+                  <span class="counter-current" title="Current counter value">Now: ${t.counterValue ?? t.counterStart ?? 0}</span>
+                  <button class="btn btn-ghost" style="font-size:0.7rem; padding:0.2rem 0.4rem;"
+                    onclick="resetCounter(${i})" title="Reset counter to start value">↺</button>
+                </div>
+              </div>
+              <button class="btn btn-danger btn-icon" onclick="removeTrigger(${i})" title="Delete trigger"
+                style="font-size:0.85rem;">✕</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function addTrigger() {
+      if (!selectedChannel) return;
+      profiles[selectedChannel].triggers.push({
+        phrase: '',
+        response: '',
+        allowedUsers: '',
+        disallowedUsers: '',
+        matchAnywhere: false,
+        cooldown: 0,
+        delay: 0,
+        enabled: true,
+        useCounter: false,
+        counterStart: 0,
+        counterValue: 0,
+      });
+      saveProfiles();
+      renderTriggerEditor();
+      renderChannelList();
+    }
+
+    function removeTrigger(index) {
+      if (!selectedChannel) return;
+      profiles[selectedChannel].triggers.splice(index, 1);
+      saveProfiles();
+      renderTriggerEditor();
+      renderChannelList();
+    }
+
+    function updateTrigger(index, field, value) {
+      if (!selectedChannel) return;
+      const t = profiles[selectedChannel].triggers[index];
+      if (!t) return;
+      t[field] = value;
+      if (field === 'counterStart') {
+        // Don't auto-reset counterValue when changing start
+      }
+      saveProfiles();
+      // Only re-render if counter visibility changed
+      if (field === 'useCounter') renderTriggerEditor();
+    }
+
+    function togglePauseChannel() {
+      if (!selectedChannel) return;
+      profiles[selectedChannel].paused = !profiles[selectedChannel].paused;
+      saveProfiles();
+      renderTriggerEditor();
+      renderChannelList();
+      addLogEntry('info', `${profiles[selectedChannel].paused ? 'Paused' : 'Resumed'} monitoring for <span class="log-channel">#${selectedChannel}</span>`);
+    }
+
+    function toggleTriggerEnabled(index) {
+      if (!selectedChannel) return;
+      const t = profiles[selectedChannel].triggers[index];
+      if (!t) return;
+      t.enabled = (t.enabled === false) ? true : false;
+      saveProfiles();
+      renderTriggerEditor();
+    }
+
+    function toggleCounter(index) {
+      if (!selectedChannel) return;
+      const t = profiles[selectedChannel].triggers[index];
+      if (!t) return;
+      t.useCounter = !t.useCounter;
+      if (t.useCounter && t.counterValue === undefined) {
+        t.counterValue = t.counterStart || 0;
+      }
+      saveProfiles();
+      renderTriggerEditor();
+    }
+
+    function toggleMatchAnywhere(index) {
+      if (!selectedChannel) return;
+      const t = profiles[selectedChannel].triggers[index];
+      if (!t) return;
+      t.matchAnywhere = !t.matchAnywhere;
+      saveProfiles();
+      renderTriggerEditor();
+    }
+
+    function resetCounter(index) {
+      if (!selectedChannel) return;
+      const t = profiles[selectedChannel].triggers[index];
+      if (!t) return;
+      t.counterValue = t.counterStart || 0;
+      saveProfiles();
+      renderTriggerEditor();
+    }
+
+    function escapeAttr(str) {
+      if (!str) return '';
+      return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    // ── IRC WebSocket ──
+    function connectIRC() {
+      if (ircSocket && (ircSocket.readyState === WebSocket.CONNECTING || ircSocket.readyState === WebSocket.OPEN)) {
+        return;
+      }
+
+      updateConnectionUI('connecting');
+      addLogEntry('info', 'Connecting to Twitch IRC…');
+
+      ircSocket = new WebSocket(IRC_URL);
+
+      ircSocket.onopen = () => {
+        ircSocket.send(`PASS oauth:${accessToken}`);
+        ircSocket.send(`NICK ${username}`);
+
+        // Join all configured channels
+        Object.keys(profiles).forEach(ch => joinChannel(ch));
+
+        ircConnected = true;
+        updateConnectionUI('connected');
+        addLogEntry('info', 'Connected to Twitch IRC ✓');
+      };
+
+      ircSocket.onmessage = (event) => {
+        const lines = event.data.split('\r\n');
+        lines.forEach(line => {
+          if (!line) return;
+
+          // PING/PONG keepalive
+          if (line.startsWith('PING')) {
+            ircSocket.send('PONG :tmi.twitch.tv');
+            return;
+          }
+
+          // Log raw IRC for debugging (to browser console)
+          console.log('[IRC]', line);
+
+          // Parse PRIVMSG — use permissive regex for username/host
+          const privmsgMatch = line.match(/^:([^!]+)!\S+ PRIVMSG #(\S+) :(.+)$/i);
+          if (privmsgMatch) {
+            const [, sender, channel, message] = privmsgMatch;
+            handleChatMessage(sender.toLowerCase(), channel.toLowerCase(), message.trim());
+          }
+
+          // Log auth/join failures
+          if (line.includes('Login authentication failed')) {
+            addLogEntry('error', 'Authentication failed — token may be expired. Try logging out and back in.');
+          }
+          if (line.includes('NOTICE') && line.includes('improperly formatted')) {
+            addLogEntry('error', 'IRC message format error — check console for details.');
+          }
+        });
+      };
+
+      ircSocket.onclose = () => {
+        ircConnected = false;
+        joinedChannels.clear();
+        updateConnectionUI('disconnected');
+        addLogEntry('error', 'Disconnected from Twitch IRC');
+
+        // Auto-reconnect after 5s
+        if (accessToken) {
+          reconnectTimer = setTimeout(() => {
+            addLogEntry('info', 'Attempting reconnect…');
+            connectIRC();
+          }, 5000);
+        }
+      };
+
+      ircSocket.onerror = (err) => {
+        console.error('IRC error:', err);
+        addLogEntry('error', 'IRC connection error');
+      };
+    }
+
+    function disconnectIRC() {
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      if (ircSocket) {
+        ircSocket.close();
+        ircSocket = null;
+      }
+      ircConnected = false;
+      joinedChannels.clear();
+      updateConnectionUI('disconnected');
+    }
+
+    function joinChannel(name) {
+      if (!ircSocket || ircSocket.readyState !== WebSocket.OPEN) return;
+      if (joinedChannels.has(name)) return;
+      ircSocket.send(`JOIN #${name}`);
+      joinedChannels.add(name);
+      addLogEntry('info', `Joined <span class="log-channel">#${name}</span>`);
+    }
+
+    function leaveChannel(name) {
+      if (!ircSocket || ircSocket.readyState !== WebSocket.OPEN) return;
+      ircSocket.send(`PART #${name}`);
+      joinedChannels.delete(name);
+      addLogEntry('info', `Left <span class="log-channel">#${name}</span>`);
+    }
+
+    // Send message via Twitch Helix API (more reliable than IRC PRIVMSG)
+    async function sendMessage(channel, message) {
+      const broadcasterId = await resolveUserId(channel);
+      if (!broadcasterId) {
+        addLogEntry('error', `Could not resolve user ID for <span class="log-channel">#${channel}</span>`);
+        return false;
+      }
+      if (!userId) {
+        addLogEntry('error', 'Sender user ID not available. Try logging out and back in.');
+        return false;
+      }
+      let finalMessage = message;
+      if (lastSentMessages[channel] === message) {
+        finalMessage += ' ⠀'; // Append braille space to bypass duplicate filter
+      }
+
+      try {
+        const res = await fetch('https://api.twitch.tv/helix/chat/messages', {
+          method: 'POST',
+          headers: {
+            'Client-ID': TWITCH_CLIENT_ID,
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            broadcaster_id: broadcasterId,
+            sender_id: userId,
+            message: finalMessage,
+          }),
+        });
+        if (res.ok) {
+          lastSentMessages[channel] = message; // Store original message for next check
+          return true;
+        } else {
+          const err = await res.json().catch(() => ({}));
+          console.error('[AutoChatter] Send failed:', res.status, err);
+          addLogEntry('error',
+            `Send failed (${res.status}): ${err.message || err.error || 'Unknown error'} — ` +
+            `<span class="log-channel">#${channel}</span>`
+          );
+          return false;
+        }
+      } catch (e) {
+        console.error('[AutoChatter] Send error:', e);
+        addLogEntry('error', `Network error sending to <span class="log-channel">#${channel}</span>: ${e.message}`);
+        return false;
+      }
+    }
+
+    // ── Message Handling ──
+    async function handleChatMessage(sender, channel, message) {
+      // Don't respond to ourselves
+      if (sender.toLowerCase() === username.toLowerCase()) return;
+
+      // Log ALL incoming chat messages to the activity panel
+      addLogEntry('chat',
+        `<span class="log-channel">#${channel}</span> ` +
+        `<span class="log-user">${escapeHtml(sender)}</span>: ` +
+        `${escapeHtml(message)}`
+      );
+
+      const profile = profiles[channel];
+      if (!profile || profile.paused) return;
+
+      const msgLower = message.toLowerCase().trim();
+
+      for (const trigger of profile.triggers) {
+        if (!trigger.phrase || trigger.enabled === false) continue;
+
+        const phraseLower = trigger.phrase.toLowerCase().trim();
+        // Match logic: 'Anywhere' or 'Starts with' (includes exact match)
+        const isMatch = trigger.matchAnywhere
+          ? msgLower.includes(phraseLower)
+          : (msgLower === phraseLower || msgLower.startsWith(phraseLower + ' '));
+
+        if (isMatch) {
+          // Check allowed users filter
+          if (trigger.allowedUsers && trigger.allowedUsers.trim()) {
+            const allowed = trigger.allowedUsers.toLowerCase().split(',').map(u => u.trim()).filter(u => u);
+            if (allowed.length > 0 && !allowed.includes(sender.toLowerCase())) {
+              // User not in allowlist, skip
+              continue;
+            }
+          }
+
+          // Check disallowed users filter
+          if (trigger.disallowedUsers && trigger.disallowedUsers.trim()) {
+            const disallowed = trigger.disallowedUsers.toLowerCase().split(',').map(u => u.trim()).filter(u => u);
+            if (disallowed.includes(sender.toLowerCase())) {
+              // User is blacklisted, skip
+              continue;
+            }
+          }
+
+          // Check cooldown (enforce min 0.5s to avoid loops)
+          const now = Date.now();
+          const cooldownMs = Math.max(500, (trigger.cooldown || 0) * 1000);
+          if (trigger.lastTriggered && (now - trigger.lastTriggered) < cooldownMs) {
+            // Still on cooldown
+            if (trigger.cooldown > 0) {
+              const remaining = Math.ceil((cooldownMs - (now - trigger.lastTriggered)) / 1000);
+              console.log(`[AutoChatter] Trigger "${trigger.phrase}" on cooldown. ${remaining}s left.`);
+            }
+            continue;
+          }
+          trigger.lastTriggered = now;
+
+          // Match found!
+          addLogEntry('match',
+            `⚡ TRIGGER matched: ` +
+            `<span class="log-user">${escapeHtml(sender)}</span> said ` +
+            `<span class="log-phrase">${escapeHtml(trigger.phrase)}</span> in ` +
+            `<span class="log-channel">#${channel}</span>`
+          );
+
+          let response = trigger.response || '';
+          // Replace placeholders
+          response = response.replace(/\{username\}/gi, sender);
+
+          // Handle counter
+          if (trigger.useCounter) {
+            if (trigger.counterValue === undefined) {
+              trigger.counterValue = trigger.counterStart || 0;
+            }
+            trigger.counterValue++;
+            response = response.replace(/\{count\}/gi, trigger.counterValue);
+            saveProfiles();
+            // Re-render if this channel is selected
+            if (selectedChannel === channel) {
+              renderTriggerEditor();
+            }
+          }
+
+          if (response) {
+            // Wait for configured delay
+            if (trigger.delay > 0) {
+              await new Promise(resolve => setTimeout(resolve, trigger.delay * 1000));
+            }
+            const sent = await sendMessage(channel, response);
+            if (sent) {
+              addLogEntry('sent',
+                `→ <span class="log-channel">#${channel}</span>: ${escapeHtml(response)}`
+              );
+            } else {
+              addLogEntry('error',
+                `Failed to send response to <span class="log-channel">#${channel}</span> (socket not open)`
+              );
+            }
+          }
+          break; // Only trigger the first match
+        }
+      }
+    }
+
+    // ── Activity Log ──
+    function addLogEntry(type, html) {
+      const log = document.getElementById('activity-log');
+      const empty = document.getElementById('activity-empty');
+      if (empty) empty.style.display = 'none';
+
+      const now = new Date();
+      const time = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      entry.innerHTML = `<span class="log-time">${time}</span>${html}`;
+      log.appendChild(entry);
+
+      // Keep max 200 entries
+      while (log.children.length > 201) {
+        log.removeChild(log.children[1]); // skip empty placeholder
+      }
+
+      // Scroll to bottom
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function clearLog() {
+      const log = document.getElementById('activity-log');
+      log.innerHTML = '<div class="activity-empty" id="activity-empty">Waiting for activity…<br>Triggers will appear here in real-time.</div>';
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    // ── Connection UI ──
+    function updateConnectionUI(status) {
+      const dot = document.getElementById('conn-dot');
+      const monitorDot = document.getElementById('monitor-dot');
+      const monitorStatus = document.getElementById('monitor-status');
+
+      dot.className = 'connection-dot';
+      monitorDot.className = 'connection-dot';
+
+      const channelCount = Object.keys(profiles).length;
+      const triggerCount = Object.values(profiles).reduce((sum, p) => sum + p.triggers.filter(t => t.phrase).length, 0);
+
+      switch (status) {
+        case 'connected':
+          dot.classList.add('connected');
+          dot.title = 'Connected';
+          monitorDot.classList.add('connected');
+          monitorStatus.textContent = `Connected — monitoring ${channelCount} channel${channelCount !== 1 ? 's' : ''} with ${triggerCount} trigger${triggerCount !== 1 ? 's' : ''}`;
+          break;
+        case 'connecting':
+          dot.classList.add('connecting');
+          dot.title = 'Connecting…';
+          monitorDot.classList.add('connecting');
+          monitorStatus.textContent = 'Connecting to Twitch IRC…';
+          break;
+        default:
+          dot.title = 'Disconnected';
+          monitorStatus.textContent = 'Not connected';
+      }
+    }
+
+    // Re-update status bar when profiles change
+    function refreshMonitorStatus() {
+      if (ircConnected) updateConnectionUI('connected');
+    }
+
+    // Override save to also refresh status
+    const _originalSaveProfiles = saveProfiles;
+    // We inline refresh in saveProfiles instead
+    const _saveProfilesBase = () => {
+      localStorage.setItem(LS_PROFILES, JSON.stringify(profiles));
+      if (ircConnected) updateConnectionUI('connected');
+    };
+    // Replace saveProfiles
+    // (already defined above, let's patch it)
+
+  </script>
+
+  <script>
+    // Patch saveProfiles to also refresh monitor bar
+    (function () {
+      const origSave = saveProfiles;
+      window.saveProfiles = function () {
+        localStorage.setItem(LS_PROFILES, JSON.stringify(profiles));
+        if (ircConnected) updateConnectionUI('connected');
+      };
+    })();
+  </script>
+
+</body>
+
+</html>
