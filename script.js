@@ -528,6 +528,7 @@ function connectIRC() {
     ircSocket.onopen = () => {
         ircSocket.send(`PASS oauth:${accessToken}`);
         ircSocket.send(`NICK ${username}`);
+        ircSocket.send('CAP REQ :twitch.tv/tags');
 
         // Join all configured channels
         Object.keys(profiles).forEach(ch => joinChannel(ch));
@@ -551,11 +552,24 @@ function connectIRC() {
             // Log raw IRC for debugging (to browser console)
             console.log('[IRC]', line);
 
+            // Parse tags
+            let tags = {};
+            let rawLine = line;
+            if (line.startsWith('@')) {
+                const spaceIdx = line.indexOf(' ');
+                const tagStr = line.substring(1, spaceIdx);
+                rawLine = line.substring(spaceIdx + 1);
+                tagStr.split(';').forEach(pair => {
+                    const [k, v] = pair.split('=');
+                    tags[k] = v ? v.replace(/\\s/g, ' ').replace(/\\:/g, ':').replace(/\\r/g, '\r').replace(/\\n/g, '\n').replace(/\\\\/g, '\\') : '';
+                });
+            }
+
             // Parse PRIVMSG — use permissive regex for username/host
-            const privmsgMatch = line.match(/^:([^!]+)!\S+ PRIVMSG #(\S+) :(.+)$/i);
+            const privmsgMatch = rawLine.match(/^:([^!]+)!\S+ PRIVMSG #(\S+) :(.+)$/i);
             if (privmsgMatch) {
                 const [, sender, channel, message] = privmsgMatch;
-                handleChatMessage(sender.toLowerCase(), channel.toLowerCase(), message.trim());
+                handleChatMessage(sender.toLowerCase(), channel.toLowerCase(), message.trim(), tags);
             }
 
             // Log auth/join failures
@@ -629,46 +643,78 @@ async function sendMessage(channel, message) {
         addLogEntry('error', 'Sender user ID not available. Try logging out and back in.');
         return false;
     }
-    let finalMessage = message;
-    if (lastSentMessages[channel] === message) {
-        finalMessage += ' ⠀'; // Append braille space to bypass duplicate filter
-    }
 
-    try {
-        const res = await fetch('https://api.twitch.tv/helix/chat/messages', {
-            method: 'POST',
-            headers: {
-                'Client-ID': TWITCH_CLIENT_ID,
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                broadcaster_id: broadcasterId,
-                sender_id: userId,
-                message: finalMessage,
-            }),
-        });
-        if (res.ok) {
-            lastSentMessages[channel] = message; // Store original message for next check
-            return true;
-        } else {
-            const err = await res.json().catch(() => ({}));
-            console.error('[AutoChatter] Send failed:', res.status, err);
-            addLogEntry('error',
-                `Send failed (${res.status}): ${err.message || err.error || 'Unknown error'} — ` +
-                `<span class="log-channel">#${channel}</span>`
-            );
-            return false;
-        }
-    } catch (e) {
-        console.error('[AutoChatter] Send error:', e);
-        addLogEntry('error', `Network error sending to <span class="log-channel">#${channel}</span>: ${e.message}`);
-        return false;
+    // Split message into chunks of 500 characters (Twitch Helix API limit)
+    const chunks = [];
+    let remaining = message;
+    const MAX_LENGTH = 500;
+
+    while (remaining.length > MAX_LENGTH) {
+        // Try to split at a space to avoid cutting words
+        let splitIndex = remaining.lastIndexOf(' ', MAX_LENGTH);
+        // If no space is found, just cut at the limit
+        if (splitIndex === -1) splitIndex = MAX_LENGTH;
+
+        const chunk = remaining.substring(0, splitIndex).trim();
+        if (chunk) chunks.push(chunk);
+        remaining = remaining.substring(splitIndex).trim();
     }
+    if (remaining.trim()) chunks.push(remaining.trim());
+
+    if (chunks.length === 0) return false;
+
+    let allSent = true;
+    for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        let finalMessage = chunk;
+        if (lastSentMessages[channel] === chunk) {
+            finalMessage += ' ⠀'; // Append braille space to bypass duplicate filter
+        }
+
+        try {
+            const res = await fetch('https://api.twitch.tv/helix/chat/messages', {
+                method: 'POST',
+                headers: {
+                    'Client-ID': TWITCH_CLIENT_ID,
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    broadcaster_id: broadcasterId,
+                    sender_id: userId,
+                    message: finalMessage,
+                }),
+            });
+
+            if (res.ok) {
+                lastSentMessages[channel] = chunk;
+            } else {
+                const err = await res.json().catch(() => ({}));
+                console.error('[AutoChatter] Send failed:', res.status, err);
+                addLogEntry('error',
+                    `Send failed (${res.status}): ${err.message || err.error || 'Unknown error'} — ` +
+                    `<span class="log-channel">#${channel}</span>`
+                );
+                allSent = false;
+                break; // Stop sending subsequent chunks if one fails
+            }
+        } catch (e) {
+            console.error('[AutoChatter] Send error:', e);
+            addLogEntry('error', `Network error sending to <span class="log-channel">#${channel}</span>: ${e.message}`);
+            allSent = false;
+            break;
+        }
+
+        // Add a small delay between chunks to avoid rate limits
+        if (i < chunks.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 600));
+        }
+    }
+    return allSent;
 }
 
 // ── Message Handling ──
-async function handleChatMessage(sender, channel, message) {
+async function handleChatMessage(sender, channel, message, tags = {}) {
     // Don't respond to ourselves
     if (sender.toLowerCase() === username.toLowerCase()) return;
 
@@ -739,14 +785,18 @@ async function handleChatMessage(sender, channel, message) {
                 author: sender,
                 message: message,
                 count: trigger.useCounter ? (trigger.counterValue || trigger.counterStart || 0) + 1 : 0,
-                channel: channel
+                channel: channel,
+                context_messages: lastSentMessages[channel] || "",
+                reply_context: tags['reply-parent-msg-body'] || ""
             })
 
             let response = await queueAiTask(() => generateAIResponse(trigger.prePrompt || '', {
                 author: sender,
                 message: message,
                 count: trigger.useCounter ? (trigger.counterValue || trigger.counterStart || 0) + 1 : 0,
-                channel: channel
+                channel: channel,
+                context_messages: lastSentMessages[channel] || "",
+                reply_context: tags['reply-parent-msg-body'] || ""
             }), sender);
             console.log("response from generate", response)
 
@@ -1154,14 +1204,24 @@ async function generateAIResponse(prePrompt, variables) {
         const regex = new RegExp(`\\{${key}\\}`, 'gi');
         prompt = prompt.replace(regex, value);
     }
+    let context_message_string = ""
+    if (variables.context_messages && variables.context_messages.length > 0) {
+        context_message_string = `\ncontext_messages: ${variables.context_messages}`
+    }
+    let reply_context_string = ""
+    if (variables.reply_context && variables.reply_context.length > 0) {
+        reply_context_string = `\nreply_context: ${variables.reply_context}`
+    }
+    prompt = `author: ${variables.author}\n\n${context_message_string}\n${reply_context_string}\nprompt: ${prompt}\nmessage: ${variables.message}`
 
-    if (prompt.length > 512) {
-        prompt = prompt.substring(0, 512);
+    if (prompt.length > 2048) {
+        prompt = prompt.substring(0, 2048);
     }
     // Add this to clear the KV Cache and free up VRAM from the last message!
     if (typeof aiEngine.resetChat === 'function') {
         await aiEngine.resetChat();
     }
+    console.log("prompt!!!!!!!!!!!!!!!!!!!!!!", prompt)
     try {
         // Stream response (matching test file pattern — prevents KV cache reallocation leaks)
         const chunks = await aiEngine.chat.completions.create({
