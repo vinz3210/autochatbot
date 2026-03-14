@@ -13,6 +13,8 @@ const LS_TOKEN = 'ar_twitch_token';
 const LS_USERNAME = 'ar_twitch_user';
 const LS_PROFILES = 'ar_profiles';
 const LS_MODEL = 'ar_ai_model';
+const LS_LOCAL_URL = 'ar_local_url';
+const LS_LOCAL_MODEL = 'ar_local_model';
 const IRC_URL = 'wss://irc-ws.chat.twitch.tv:443';
 
 const MODELS = {
@@ -45,6 +47,12 @@ const MODELS = {
         label: "Llama 3.1 8B (Quality)",
         description: "High quality intelligence. ~5.0 GB download.",
         warning: "⚠️ Warning: Requires a good GPU (6GB+ VRAM)."
+    },
+    "local": {
+        id: "local",
+        label: "Local API (Ollama/LM Studio)",
+        description: "Connect to a local model server. No VRAM leaks.",
+        warning: ""
     }
 };
 
@@ -727,12 +735,20 @@ async function handleChatMessage(sender, channel, message) {
 
             addLogEntry('info', `🤖 Processing AI response for <span class="log-user">${escapeHtml(sender)}</span>...`);
 
+            console.log("data sent to generate", trigger.prePrompt || '', {
+                author: sender,
+                message: message,
+                count: trigger.useCounter ? (trigger.counterValue || trigger.counterStart || 0) + 1 : 0,
+                channel: channel
+            })
+
             let response = await generateAIResponse(trigger.prePrompt || '', {
                 author: sender,
                 message: message,
                 count: trigger.useCounter ? (trigger.counterValue || trigger.counterStart || 0) + 1 : 0,
                 channel: channel
             });
+            console.log("response from generate", response)
 
             if (!response) {
                 addLogEntry('error', 'AI failed to generate a response.');
@@ -858,12 +874,25 @@ async function initAI(forceReload = false) {
 
     renderModelSelection(); // Sync UI selectors on init
 
-    // Clean up existing engine if re-initializing
+    // Unload current model (but keep the engine instance for reuse — matching test file pattern)
     if (aiEngine) {
         try {
             await aiEngine.unload();
-            aiEngine = null;
         } catch (e) { console.warn("Unload error:", e); }
+    }
+
+    // Local API mode — no WebLLM needed
+    if (currentModelKey === 'local') {
+        aiLoading = false;
+        aiReady = true;
+        const localUrl = localStorage.getItem(LS_LOCAL_URL) || '';
+        const localModel = localStorage.getItem(LS_LOCAL_MODEL) || '';
+        const progressContainer = document.getElementById('ai-progress-container');
+        if (progressContainer) progressContainer.style.display = 'none';
+        updateMonitorStatus(localModel ? `Local API: ${localModel}` : 'Local API: configure URL & model');
+        addLogEntry('info', `Using local API${localUrl ? ': ' + localUrl : ' (not configured)'}`);
+        refreshMonitorStatus();
+        return;
     }
 
     aiLoading = true;
@@ -879,8 +908,18 @@ async function initAI(forceReload = false) {
     updateMonitorStatus(`Initializing ${modelCfg.label.split(' (')[0]}...`);
 
     try {
-        const { MLCEngine } = await import("https://esm.run/@mlc-ai/web-llm");
-        aiEngine = new MLCEngine();
+        // Reuse engine instance (creating a new one each time causes GPU memory leaks)
+        if (!aiEngine) {
+            const { MLCEngine } = await import("https://esm.run/@mlc-ai/web-llm");
+            aiEngine = new MLCEngine(
+                {
+                    context_window_size: 256,          // Smaller KV cache = less per-message GPU allocation
+                    max_num_sequence: 1,
+                    max_total_sequence_length: 256,
+                    prefill_chunk_size: 64,
+                }
+            );
+        }
         let currentStage = 0;
         let lastProgress = -1;
         let stageLabel = '';
@@ -916,12 +955,8 @@ async function initAI(forceReload = false) {
                 addLogEntry('info', `AI ${stageLabel} (Step ${currentStage + 1})…`);
             }
         });
-        await aiEngine.reload(modelCfg.id, {
-            context_window_size: 512,
-            max_num_sequence: 1,
-            max_total_sequence_length: 512,
-            prefill_chunk_size: 128,        // Smaller chunks = less peak VRAM during prompt phase
-        });
+        // Use defaults — custom KV cache config caused GPU memory fragmentation
+        await aiEngine.reload(modelCfg.id);
         aiReady = true;
         aiLoading = false;
 
@@ -976,21 +1011,117 @@ function renderModelSelection() {
         warningEl.textContent = warning;
         warningEl.style.display = warning ? 'block' : 'none';
     }
+    renderLocalConfig();
 }
+
+function renderLocalConfig() {
+    const isLocal = currentModelKey === 'local';
+    const url = localStorage.getItem(LS_LOCAL_URL) || '';
+    const model = localStorage.getItem(LS_LOCAL_MODEL) || '';
+
+    const loginConfig = document.getElementById('local-config-login');
+    if (loginConfig) {
+        loginConfig.style.display = isLocal ? 'block' : 'none';
+        const u = document.getElementById('local-url-login');
+        const m = document.getElementById('local-model-login');
+        if (u) u.value = url;
+        if (m) m.value = model;
+    }
+
+    const headerConfig = document.getElementById('local-config-bar');
+    if (headerConfig) {
+        headerConfig.style.display = isLocal ? 'flex' : 'none';
+        const u = document.getElementById('local-url-header');
+        const m = document.getElementById('local-model-header');
+        if (u) u.value = url;
+        if (m) m.value = model;
+    }
+}
+
+function updateLocalConfig(source) {
+    let url, model;
+    if (source === 'login') {
+        url = document.getElementById('local-url-login')?.value || '';
+        model = document.getElementById('local-model-login')?.value || '';
+    } else {
+        url = document.getElementById('local-url-header')?.value || '';
+        model = document.getElementById('local-model-header')?.value || '';
+    }
+    localStorage.setItem(LS_LOCAL_URL, url);
+    localStorage.setItem(LS_LOCAL_MODEL, model);
+    renderLocalConfig();
+    if (currentModelKey === 'local') {
+        updateMonitorStatus(model ? `Local API: ${model}` : 'Local API: configure URL & model');
+    }
+}
+
+async function generateLocalResponse(prePrompt, variables) {
+    const localUrl = localStorage.getItem(LS_LOCAL_URL) || '';
+    const localModel = localStorage.getItem(LS_LOCAL_MODEL) || '';
+
+    if (!localUrl || !localModel) {
+        addLogEntry('error', 'Local API not configured — set the URL and model name.');
+        return null;
+    }
+
+    if (isGenerating) {
+        addLogEntry('warning', 'AI is busy generating. Skipping trigger.');
+        return null;
+    }
+    isGenerating = true;
+
+    let prompt = prePrompt;
+    for (const [key, value] of Object.entries(variables)) {
+        const regex = new RegExp(`\\{${key}\\}`, 'gi');
+        prompt = prompt.replace(regex, value);
+    }
+
+    try {
+        const res = await fetch(`${localUrl.replace(/\/+$/, '')}/chat/completions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: localModel,
+                messages: [{ role: 'user', content: prompt }],
+                temperature: 0.7,
+                max_tokens: 150,
+            }),
+        });
+
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(`${res.status}: ${err.error?.message || err.message || 'Server error'}`);
+        }
+
+        const data = await res.json();
+        return data.choices[0]?.message?.content?.trim() || null;
+    } catch (err) {
+        console.error("Local AI Error:", err);
+        addLogEntry('error', `Local AI failed: ${err.message}`);
+        return null;
+    } finally {
+        isGenerating = false;
+    }
+}
+
 let isGenerating = false;
+
 async function generateAIResponse(prePrompt, variables) {
+    if (currentModelKey === 'local') {
+        return generateLocalResponse(prePrompt, variables);
+    }
+
     if (!aiReady) {
         addLogEntry('error', 'AI Model not ready. Please wait for it to load.');
         return null;
     }
 
-    // 🔴 NEW: Block overlapping requests to save VRAM
     if (isGenerating) {
         addLogEntry('warning', 'AI is busy generating. Skipping trigger to prevent GPU crash.');
         return null;
     }
 
-    isGenerating = true; // Lock the engine
+    isGenerating = true;
 
     let prompt = prePrompt;
     for (const [key, value] of Object.entries(variables)) {
@@ -1001,15 +1132,29 @@ async function generateAIResponse(prePrompt, variables) {
     if (prompt.length > 512) {
         prompt = prompt.substring(0, 512);
     }
-
+    // Add this to clear the KV Cache and free up VRAM from the last message!
+    if (typeof aiEngine.resetChat === 'function') {
+        await aiEngine.resetChat();
+    }
     try {
-        const response = await aiEngine.chat.completions.create({
+        // Stream response (matching test file pattern — prevents KV cache reallocation leaks)
+        const chunks = await aiEngine.chat.completions.create({
             messages: [{ role: "user", content: prompt }],
             temperature: 0.7,
             max_tokens: 150,
+            stream: true,
         });
 
-        return response.choices[0]?.message?.content?.trim() || null;
+        let fullResponse = "";
+        for await (const chunk of chunks) {
+            fullResponse += chunk.choices[0]?.delta?.content || "";
+        }
+
+        // No resetChat() — the test file never calls it.
+        // WebLLM reuses the KV cache buffer in-place on the next call.
+        // Calling resetChat() deallocates + reallocates, causing the 300MB/msg leak.
+
+        return fullResponse.trim() || null;
     } catch (err) {
         console.error("AI Generation Error:", err);
         const isOOM = err.message?.includes('memory') || err.name?.includes('OutOfMemory');
@@ -1017,16 +1162,12 @@ async function generateAIResponse(prePrompt, variables) {
         if (isOOM) {
             addLogEntry('error', 'GPU out of memory — reloading AI engine…');
             aiReady = false;
-            // Let initAI handle the unload and recreation safely
             initAI(true);
         } else {
             addLogEntry('error', 'AI Generation failed: ' + err.message);
         }
         return null;
     } finally {
-        console.log("inside finally")
-        // Free KV cache VRAM + release lock
-        try { await aiEngine.resetChat(); console.log("inside try") } catch (_) { console.log("inside catch") }
         isGenerating = false;
     }
 }

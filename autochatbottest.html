@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebLLM Browser Demo</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+        #output { background: #f4f4f4; padding: 1rem; border-radius: 8px; min-height: 100px; white-space: pre-wrap; margin-top: 1rem; border: 1px solid #ddd; }
+        #status { color: #666; font-size: 0.9rem; margin-bottom: 1rem; }
+        textarea { width: 100%; height: 100px; padding: 10px; border-radius: 5px; border: 1px solid #ccc; margin-bottom: 10px; }
+        button { padding: 10px 20px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+    <h2>Browser-Only LLM (WebLLM)</h2>
+    <div id="status">Initializing... (This may take a moment)</div>
+
+    <textarea id="input" placeholder="Type your prompt here..." disabled></textarea>
+    <br>
+    <button id="sendBtn" disabled>Send Prompt</button>
+
+    <div id="output">The model output will appear here...</div>
+
+    <script type="module">
+        import * as webllm from "https://esm.run/@mlc-ai/web-llm";
+
+        const statusLabel = document.getElementById("status");
+        const outputBox = document.getElementById("output");
+        const inputArea = document.getElementById("input");
+        const sendBtn = document.getElementById("sendBtn");
+
+        // We use a small, efficient model for this demo
+        const selectedModel = "Llama-3.1-8B-Instruct-q4f16_1-MLC";
+
+        const engine = new webllm.MLCEngine();
+
+        // Callback to show download/loading progress
+        engine.setInitProgressCallback((report) => {
+            statusLabel.innerText = report.text;
+        });
+
+        async function init() {
+            try {
+                // This downloads the model to browser cache if not present
+                await engine.reload(selectedModel);
+                
+                statusLabel.innerText = "Model Ready! (Running on WebGPU)";
+                inputArea.disabled = false;
+                sendBtn.disabled = false;
+            } catch (err) {
+                statusLabel.innerText = "Error: " + err.message + ". Make sure WebGPU is enabled.";
+            }
+        }
+
+        async function runPrompt() {
+            const prompt = inputArea.value;
+            if (!prompt) return;
+
+            outputBox.innerText = "Generating...";
+            sendBtn.disabled = true;
+
+            const messages = [{ role: "user", content: prompt }];
+            
+            // Streaming the response for a "chat" feel
+            const chunks = await engine.chat.completions.create({
+                messages,
+                stream: true,
+            });
+
+            let fullResponse = "";
+            for await (const chunk of chunks) {
+                const content = chunk.choices[0]?.delta?.content || "";
+                fullResponse += content;
+                outputBox.innerText = fullResponse;
+            }
+
+            sendBtn.disabled = false;
+        }
+
+        sendBtn.addEventListener("click", runPrompt);
+
+        // Start loading the model immediately
+        init();
+    </script>
+</body>
+</html>
