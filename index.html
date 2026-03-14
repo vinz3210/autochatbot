@@ -43,9 +43,11 @@
       <div class="model-selection-login">
         <label for="login-model-select">AI Model</label>
         <select id="login-model-select" onchange="switchModel(this.value)">
-          <option value="qwen">Qwen 0.5B (Fast, Recommended)</option>
-          <option value="gemma2">Gemma-2 2B (Balanced)</option>
-          <option value="llama">Llama 3.1 8B (Powerful, GPU intensive)</option>
+          <option value="qwen">Qwen 2.5 0.5B (Smallest)</option>
+          <option value="llama1b">Llama 3.2 1B (Fast)</option>
+          <option value="gemma2">Gemma-2 2B (Reliable)</option>
+          <option value="phi3">Phi-3.5 Mini (Smart)</option>
+          <option value="llama8b">Llama 3.1 8B (Quality)</option>
         </select>
         <div id="login-model-warning" class="model-warning" style="display: none;"></div>
       </div>

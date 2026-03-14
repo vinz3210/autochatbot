@@ -18,21 +18,33 @@ const IRC_URL = 'wss://irc-ws.chat.twitch.tv:443';
 const MODELS = {
     "qwen": {
         id: "Qwen2.5-0.5B-Instruct-q4f16_1-MLC",
-        label: "Qwen 0.5B (Fast, Recommended)",
-        description: "Small and efficient. Ideal for most users.",
+        label: "Qwen 2.5 0.5B (Smallest)",
+        description: "Smallest & fastest. Ideal for basic tasks.",
         warning: ""
     },
-    "llama": {
-        id: "Llama-3.1-8B-Instruct-q4f16_1-MLC",
-        label: "Llama 3.1 8B (Powerful)",
-        description: "High quality but requires high-end GPU (6GB+ VRAM) and ~5GB download.",
-        warning: "⚠️ Warning: This model needs a lot of memory and a strong GPU."
+    "llama1b": {
+        id: "Llama-3.2-1B-Instruct-q4f16_1-MLC",
+        label: "Llama 3.2 1B (Fast)",
+        description: "Great for basic chat. ~750 MB download.",
+        warning: ""
     },
     "gemma2": {
         id: "gemma-2-2b-it-q4f16_1-MLC",
-        label: "Gemma-2 2B (Balanced)",
-        description: "Good balance between speed and quality.",
-        warning: "⚠️ Warning: This model requires a decent GPU."
+        label: "Gemma-2 2B (Reliable)",
+        description: "Very reliable performance. ~1.6 GB download.",
+        warning: "⚠️ Warning: Requires a decent GPU."
+    },
+    "phi3": {
+        id: "Phi-3.5-mini-instruct-q4f16_1-MLC",
+        label: "Phi-3.5 Mini (Smart)",
+        description: "Stronger reasoning capabilities. ~2.2 GB download.",
+        warning: "⚠️ Warning: Heavier than Gemma."
+    },
+    "llama8b": {
+        id: "Llama-3.1-8B-Instruct-q4f32_1-MLC",
+        label: "Llama 3.1 8B (Quality)",
+        description: "High quality intelligence. ~5.0 GB download.",
+        warning: "⚠️ Warning: Requires a good GPU (6GB+ VRAM)."
     }
 };
 
