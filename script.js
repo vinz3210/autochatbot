@@ -742,12 +742,12 @@ async function handleChatMessage(sender, channel, message) {
                 channel: channel
             })
 
-            let response = await generateAIResponse(trigger.prePrompt || '', {
+            let response = await queueAiTask(() => generateAIResponse(trigger.prePrompt || '', {
                 author: sender,
                 message: message,
                 count: trigger.useCounter ? (trigger.counterValue || trigger.counterStart || 0) + 1 : 0,
                 channel: channel
-            });
+            }), sender);
             console.log("response from generate", response)
 
             if (!response) {
@@ -773,10 +773,11 @@ async function handleChatMessage(sender, channel, message) {
                 if (trigger.delay > 0) {
                     await new Promise(resolve => setTimeout(resolve, trigger.delay * 1000));
                 }
-                const sent = await sendMessage(channel, response);
+                const responseWithMention = `@${sender} ${response}`;
+                const sent = await sendMessage(channel, responseWithMention);
                 if (sent) {
                     addLogEntry('sent',
-                        `→ <span class="log-channel">#${channel}</span>: ${escapeHtml(response)}`
+                        `→ <span class="log-channel">#${channel}</span>: ${escapeHtml(responseWithMention)}`
                     );
                 } else {
                     addLogEntry('error',
@@ -1064,10 +1065,6 @@ async function generateLocalResponse(prePrompt, variables) {
         return null;
     }
 
-    if (isGenerating) {
-        addLogEntry('warning', 'AI is busy generating. Skipping trigger.');
-        return null;
-    }
     isGenerating = true;
 
     let prompt = prePrompt;
@@ -1084,7 +1081,7 @@ async function generateLocalResponse(prePrompt, variables) {
                 model: localModel,
                 messages: [{ role: 'user', content: prompt }],
                 temperature: 0.7,
-                max_tokens: 150,
+                max_tokens: 250,
             }),
         });
 
@@ -1104,6 +1101,40 @@ async function generateLocalResponse(prePrompt, variables) {
     }
 }
 
+// AI Task Queue to prevent concurrent GPU usage
+let aiQueue = [];
+let isQueueProcessing = false;
+
+async function queueAiTask(task, sender) {
+    return new Promise((resolve, reject) => {
+        const isBusy = isQueueProcessing || aiQueue.length > 0;
+        aiQueue.push({ task, resolve, reject, sender });
+
+        if (isBusy) {
+            addLogEntry('info', `AI is busy. Message for <span class="log-user">${escapeHtml(sender || 'user')}</span> added to queue (${aiQueue.length - 1} ahead).`);
+        }
+
+        processAiQueue();
+    });
+}
+
+async function processAiQueue() {
+    if (isQueueProcessing || aiQueue.length === 0) return;
+    isQueueProcessing = true;
+
+    const { task, resolve, reject } = aiQueue.shift();
+    try {
+        const result = await task();
+        resolve(result);
+    } catch (e) {
+        reject(e);
+    } finally {
+        isQueueProcessing = false;
+        // Small delay to prevent GPU thrashing
+        setTimeout(processAiQueue, 500);
+    }
+}
+
 let isGenerating = false;
 
 async function generateAIResponse(prePrompt, variables) {
@@ -1113,11 +1144,6 @@ async function generateAIResponse(prePrompt, variables) {
 
     if (!aiReady) {
         addLogEntry('error', 'AI Model not ready. Please wait for it to load.');
-        return null;
-    }
-
-    if (isGenerating) {
-        addLogEntry('warning', 'AI is busy generating. Skipping trigger to prevent GPU crash.');
         return null;
     }
 
@@ -1141,7 +1167,7 @@ async function generateAIResponse(prePrompt, variables) {
         const chunks = await aiEngine.chat.completions.create({
             messages: [{ role: "user", content: prompt }],
             temperature: 0.7,
-            max_tokens: 150,
+            max_tokens: 250,
             stream: true,
         });
 
