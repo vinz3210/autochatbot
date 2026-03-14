@@ -61,7 +61,7 @@ let accessToken = '';
 let username = '';
 let userId = ''; // Authenticated user's Twitch ID (for Helix API)
 let userIdCache = {}; // channelName -> userId cache
-let profiles = {}; // { channelName: { triggers: [ { phrase, prePrompt, useCounter, counterStart, counterValue } ] } }
+let profiles = {}; // { channelName: { triggers: [ { phrase, prePrompt, matchAnywhere, cooldown, delay, enabled } ] } }
 let selectedChannel = null;
 let ircSocket = null;
 let ircConnected = false;
@@ -339,11 +339,9 @@ function renderTriggerEditor() {
     }
 
     list.innerHTML = triggers.map((t, i) => {
-        const counterClass = t.useCounter ? 'active' : '';
         const anywhereClass = t.matchAnywhere ? 'active' : '';
         const enabledClass = (t.enabled !== false) ? 'active' : '';
         const cardDisabled = (t.enabled === false) ? 'disabled' : '';
-        const counterDisplay = t.useCounter ? '' : 'display:none;';
         return `
           <div class="trigger-card ${cardDisabled}" id="trigger-${i}">
             <div class="trigger-row">
@@ -353,14 +351,13 @@ function renderTriggerEditor() {
                   onchange="updateTrigger(${i}, 'phrase', this.value)">
               </div>
               <div class="trigger-field" style="flex:1;">
-                <label>AI Pre-prompt (use {author}, {message}, {count}, {channel})</label>
+                <label>AI Pre-prompt (use {author}, {message}, {channel})</label>
                 <textarea style="width:100%; height:100px; font-family:inherit; font-size:0.85rem; padding:0.6rem; border-radius:6px; background:var(--surface2); border:1px solid var(--border); color:var(--text); resize:vertical;"
-                  placeholder="e.g. The user {author} says: {message}. Give a sassy response in 1 sentence. Count is {count}."
+                  placeholder="e.g. The user {author} says: {message}. Give a sassy response in 1 sentence."
                   onchange="updateTrigger(${i}, 'prePrompt', this.value)">${escapeAttr(t.prePrompt || '')}</textarea>
                 <div style="font-size:0.65rem; color:var(--text-muted); margin-top:0.4rem; display:flex; gap:0.8rem; flex-wrap:wrap;">
                   <span><code style="color:var(--accent);">{author}</code> Sender</span>
                   <span><code style="color:var(--accent);">{message}</code> Message</span>
-                  <span><code style="color:var(--accent);">{count}</code> Counter</span>
                   <span><code style="color:var(--accent);">{channel}</code> Channel</span>
                 </div>
               </div>
@@ -397,21 +394,9 @@ function renderTriggerEditor() {
                   <div class="toggle ${enabledClass}"></div>
                   <span>Active</span>
                 </div>
-                <div class="toggle-wrapper" onclick="toggleCounter(${i})">
-                  <div class="toggle ${counterClass}"></div>
-                  <span>Counter</span>
-                </div>
                 <div class="toggle-wrapper" onclick="toggleMatchAnywhere(${i})" title="Trigger if word is anywhere in message">
                   <div class="toggle ${t.matchAnywhere ? 'active' : ''}"></div>
                   <span>Anywhere</span>
-                </div>
-                <div class="counter-start" style="${counterDisplay}" id="counter-opts-${i}">
-                  <label>Start:</label>
-                  <input type="number" value="${t.counterStart || 0}"
-                    onchange="updateTrigger(${i}, 'counterStart', parseInt(this.value) || 0)">
-                  <span class="counter-current" title="Current counter value">Now: ${t.counterValue ?? t.counterStart ?? 0}</span>
-                  <button class="btn btn-ghost" style="font-size:0.7rem; padding:0.2rem 0.4rem;"
-                    onclick="resetCounter(${i})" title="Reset counter to start value">↺</button>
                 </div>
               </div>
               <button class="btn btn-danger btn-icon" onclick="removeTrigger(${i})" title="Delete trigger"
@@ -429,13 +414,10 @@ function addTrigger() {
         prePrompt: '',
         allowedUsers: '',
         disallowedUsers: '',
-        matchAnywhere: false,
+        matchAnywhere: true,
         cooldown: 0,
         delay: 0,
         enabled: true,
-        useCounter: false,
-        counterStart: 0,
-        counterValue: 0,
     });
     saveProfiles();
     renderTriggerEditor();
@@ -456,8 +438,6 @@ function updateTrigger(index, field, value) {
     if (!t) return;
     t[field] = value;
     saveProfiles();
-    // Only re-render if counter visibility changed
-    if (field === 'useCounter') renderTriggerEditor();
 }
 
 
@@ -479,17 +459,7 @@ function toggleTriggerEnabled(index) {
     renderTriggerEditor();
 }
 
-function toggleCounter(index) {
-    if (!selectedChannel) return;
-    const t = profiles[selectedChannel].triggers[index];
-    if (!t) return;
-    t.useCounter = !t.useCounter;
-    if (t.useCounter && t.counterValue === undefined) {
-        t.counterValue = t.counterStart || 0;
-    }
-    saveProfiles();
-    renderTriggerEditor();
-}
+
 
 function toggleMatchAnywhere(index) {
     if (!selectedChannel) return;
@@ -500,14 +470,7 @@ function toggleMatchAnywhere(index) {
     renderTriggerEditor();
 }
 
-function resetCounter(index) {
-    if (!selectedChannel) return;
-    const t = profiles[selectedChannel].triggers[index];
-    if (!t) return;
-    t.counterValue = t.counterStart || 0;
-    saveProfiles();
-    renderTriggerEditor();
-}
+
 
 function escapeAttr(str) {
     if (!str) return '';
@@ -784,7 +747,6 @@ async function handleChatMessage(sender, channel, message, tags = {}) {
             console.log("data sent to generate", trigger.prePrompt || '', {
                 author: sender,
                 message: message,
-                count: trigger.useCounter ? (trigger.counterValue || trigger.counterStart || 0) + 1 : 0,
                 channel: channel,
                 context_messages: lastSentMessages[channel] || "",
                 reply_context: tags['reply-parent-msg-body'] || ""
@@ -793,7 +755,6 @@ async function handleChatMessage(sender, channel, message, tags = {}) {
             let response = await queueAiTask(() => generateAIResponse(trigger.prePrompt || '', {
                 author: sender,
                 message: message,
-                count: trigger.useCounter ? (trigger.counterValue || trigger.counterStart || 0) + 1 : 0,
                 channel: channel,
                 context_messages: lastSentMessages[channel] || "",
                 reply_context: tags['reply-parent-msg-body'] || ""
@@ -805,18 +766,7 @@ async function handleChatMessage(sender, channel, message, tags = {}) {
                 continue;
             }
 
-            // Handle counter (increment after AI potentially used the value)
-            if (trigger.useCounter) {
-                if (trigger.counterValue === undefined) {
-                    trigger.counterValue = trigger.counterStart || 0;
-                }
-                trigger.counterValue++;
-                saveProfiles();
-                // Re-render if this channel is selected
-                if (selectedChannel === channel) {
-                    renderTriggerEditor();
-                }
-            }
+
 
             if (response) {
                 // Wait for configured delay

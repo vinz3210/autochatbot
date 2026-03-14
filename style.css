@@ -693,44 +693,6 @@ body {
     transform: translateX(16px);
 }
 
-.counter-start {
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-}
-
-.counter-start label {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    white-space: nowrap;
-}
-
-.counter-start input {
-    width: 65px;
-    padding: 0.3rem 0.5rem;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    color: var(--text);
-    font-family: inherit;
-    font-size: 0.82rem;
-    text-align: center;
-}
-
-.counter-start input:focus {
-    outline: none;
-    border-color: var(--accent);
-}
-
-.counter-current {
-    font-size: 0.78rem;
-    color: var(--accent);
-    font-weight: 600;
-    padding: 0.2rem 0.5rem;
-    background: var(--accent-soft);
-    border-radius: 6px;
-}
-
 /* Activity log */
 .activity-panel {
     width: 320px;
