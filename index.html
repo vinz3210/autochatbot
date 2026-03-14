@@ -11,8 +11,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
     rel="stylesheet">
-  <script defer src="https://u.vinz3210.gg/script.js" data-website-id="99147947-df48-42e8-b2d8-80def4b1d1c1"
-    data-domains="autochatbot.vinz3210.gg"></script>
+  <script defer src="https://u.vinz3210.gg/script.js" data-website-id="8daef963-3674-4cae-8e2c-4393c3e8cb3a"
+    data-domains="aitwitchbot.vinz3210.gg"></script>
 
   <link rel="stylesheet" href="style.css">
 </head>
@@ -111,6 +111,15 @@
           </svg>
           <span id="user-name">—</span>
         </div>
+        <div class="header-model-selector">
+          <select id="header-model-select" onchange="switchModel(this.value)" class="model-select-compact">
+            <option value="qwen">Qwen 2.5 0.5B</option>
+            <option value="llama1b">Llama 3.2 1B</option>
+            <option value="gemma2">Gemma-2 2B</option>
+            <option value="phi3">Phi-3.5 Mini</option>
+            <option value="llama8b">Llama 3.1 8B</option>
+          </select>
+        </div>
         <button class="btn btn-ghost" onclick="logout()" title="Logout">Logout</button>
       </div>
     </div>
@@ -161,9 +170,16 @@
             </div>
           </div>
         </div>
-        <div class="monitor-bar">
-          <div class="connection-dot" id="monitor-dot"></div>
-          <div class="status-text" id="monitor-status">Not connected</div>
+        <div class="monitor-bar" id="monitor-bar">
+          <div class="monitor-left">
+            <div class="connection-dot" id="monitor-dot"></div>
+            <div class="status-text" id="monitor-status">Not connected</div>
+          </div>
+          <div class="monitor-right" id="ai-progress-container" style="display: none;">
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill" id="ai-progress-fill"></div>
+            </div>
+          </div>
         </div>
       </div>
 

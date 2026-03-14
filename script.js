@@ -856,6 +856,8 @@ let aiReady = false;
 async function initAI(forceReload = false) {
     if ((aiLoading || aiReady) && !forceReload) return;
 
+    renderModelSelection(); // Sync UI selectors on init
+
     // Clean up existing engine if re-initializing
     if (aiEngine) {
         try {
@@ -867,25 +869,74 @@ async function initAI(forceReload = false) {
     aiLoading = true;
     aiReady = false;
     const modelCfg = MODELS[currentModelKey] || MODELS["qwen"];
-    updateMonitorStatus(`Loading ${modelCfg.label.split(' (')[0]}...`);
+
+    // Reset progress UI
+    const progressContainer = document.getElementById('ai-progress-container');
+    const progressFill = id => document.getElementById(id);
+    if (progressContainer) progressContainer.style.display = 'flex';
+    if (progressFill('ai-progress-fill')) progressFill('ai-progress-fill').style.width = '0%';
+
+    updateMonitorStatus(`Initializing ${modelCfg.label.split(' (')[0]}...`);
 
     try {
         const { MLCEngine } = await import("https://esm.run/@mlc-ai/web-llm");
         aiEngine = new MLCEngine();
+        let currentStage = 0;
+        let lastProgress = -1;
+        let stageLabel = '';
         aiEngine.setInitProgressCallback((report) => {
-            updateMonitorStatus(`AI Loading: ${Math.round(report.progress * 100)}%`);
+            const pct = Math.round(report.progress * 100);
+            const txt = report.text.toLowerCase();
+            const prevProgress = lastProgress;
+
+            // Detect new stage: progress dropped significantly from last report
+            const isNewStage = prevProgress >= 0 && pct < prevProgress - 10;
+            if (isNewStage) {
+                currentStage++;
+            }
+            lastProgress = pct;
+
+            // Determine a friendly label for the current activity
+            if (txt.includes('fetching')) {
+                stageLabel = 'Downloading';
+            } else if (txt.includes('loading')) {
+                stageLabel = 'Loading';
+            } else if (txt.includes('init') || txt.includes('compil') || txt.includes('shader')) {
+                stageLabel = 'Initializing GPU';
+            } else {
+                stageLabel = 'Loading';
+            }
+
+            const stepText = `Step ${currentStage + 1}: ${stageLabel} ${modelCfg.label.split(' (')[0]} — ${pct}%`;
+            updateMonitorStatus(stepText);
+            if (progressFill('ai-progress-fill')) progressFill('ai-progress-fill').style.width = `${pct}%`;
+
+            // Log stage transitions to the activity log
+            if (isNewStage || prevProgress < 0) {
+                addLogEntry('info', `AI ${stageLabel} (Step ${currentStage + 1})…`);
+            }
         });
-        await aiEngine.reload(modelCfg.id);
+        await aiEngine.reload(modelCfg.id, {
+            context_window_size: 512,
+            max_num_sequence: 1,
+            max_total_sequence_length: 512,
+            prefill_chunk_size: 128,        // Smaller chunks = less peak VRAM during prompt phase
+        });
         aiReady = true;
         aiLoading = false;
+
+        if (progressContainer) progressContainer.style.display = 'none';
+
         updateMonitorStatus(`AI ready: ${modelCfg.label.split(' (')[0]}`);
         addLogEntry('info', `AI Model (${modelCfg.label}) Loaded ✓`);
         refreshMonitorStatus();
     } catch (err) {
         aiLoading = false;
+        if (progressContainer) progressContainer.style.display = 'none';
         console.error("AI Init Error:", err);
-        updateMonitorStatus("AI Error: WebGPU not supported?");
-        addLogEntry('error', 'Failed to load AI Model. Check WebGPU support.');
+        const errMsg = err.message || String(err);
+        updateMonitorStatus(`AI Error: ${errMsg.substring(0, 80)}`);
+        addLogEntry('error', `Failed to load AI Model: ${errMsg}`);
     }
 }
 
@@ -896,33 +947,50 @@ function switchModel(modelKey) {
     currentModelKey = modelKey;
     localStorage.setItem(LS_MODEL, modelKey);
 
+    // Sync both selectors
+    const selectors = ['login-model-select', 'header-model-select'];
+    selectors.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = modelKey;
+    });
+
     if (ircConnected) {
         addLogEntry('info', `Switching to model: ${MODELS[modelKey].label}...`);
     }
 
     initAI(true);
-    renderModelSelection(); // Update UI if on login screen or settings
+    renderModelSelection(); // Update warnings on login screen
 }
 
 function renderModelSelection() {
     // Shared logic to update UI elements based on currentModelKey
-    const loginSelect = document.getElementById('login-model-select');
-    if (loginSelect) {
-        loginSelect.value = currentModelKey;
-        const warning = MODELS[currentModelKey].warning;
-        const warningEl = document.getElementById('login-model-warning');
-        if (warningEl) {
-            warningEl.textContent = warning;
-            warningEl.style.display = warning ? 'block' : 'none';
-        }
+    const selectors = ['login-model-select', 'header-model-select'];
+    selectors.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = currentModelKey;
+    });
+
+    const warning = MODELS[currentModelKey].warning;
+    const warningEl = document.getElementById('login-model-warning');
+    if (warningEl) {
+        warningEl.textContent = warning;
+        warningEl.style.display = warning ? 'block' : 'none';
     }
 }
-
+let isGenerating = false;
 async function generateAIResponse(prePrompt, variables) {
     if (!aiReady) {
         addLogEntry('error', 'AI Model not ready. Please wait for it to load.');
         return null;
     }
+
+    // 🔴 NEW: Block overlapping requests to save VRAM
+    if (isGenerating) {
+        addLogEntry('warning', 'AI is busy generating. Skipping trigger to prevent GPU crash.');
+        return null;
+    }
+
+    isGenerating = true; // Lock the engine
 
     let prompt = prePrompt;
     for (const [key, value] of Object.entries(variables)) {
@@ -930,16 +998,36 @@ async function generateAIResponse(prePrompt, variables) {
         prompt = prompt.replace(regex, value);
     }
 
+    if (prompt.length > 512) {
+        prompt = prompt.substring(0, 512);
+    }
+
     try {
         const response = await aiEngine.chat.completions.create({
             messages: [{ role: "user", content: prompt }],
             temperature: 0.7,
+            max_tokens: 150,
         });
+
         return response.choices[0]?.message?.content?.trim() || null;
     } catch (err) {
         console.error("AI Generation Error:", err);
-        addLogEntry('error', 'AI Generation failed: ' + err.message);
+        const isOOM = err.message?.includes('memory') || err.name?.includes('OutOfMemory');
+
+        if (isOOM) {
+            addLogEntry('error', 'GPU out of memory — reloading AI engine…');
+            aiReady = false;
+            // Let initAI handle the unload and recreation safely
+            initAI(true);
+        } else {
+            addLogEntry('error', 'AI Generation failed: ' + err.message);
+        }
         return null;
+    } finally {
+        console.log("inside finally")
+        // Free KV cache VRAM + release lock
+        try { await aiEngine.resetChat(); console.log("inside try") } catch (_) { console.log("inside catch") }
+        isGenerating = false;
     }
 }
 
