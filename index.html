@@ -1957,48 +1957,51 @@
           trigger.lastTriggered = now;
 
           // Match found!
-          addLogEntry('match',
-            `⚡ TRIGGER matched: ` +
-            `<span class="log-user">${escapeHtml(sender)}</span> said ` +
-            `<span class="log-phrase">${escapeHtml(trigger.phrase)}</span> in ` +
-            `<span class="log-channel">#${channel}</span>`
-          );
+          // We wrap the response logic in an async IIFE to allow multiple triggers (potentially with delays) 
+          // to fire independently without blocking the main loop.
+          (async () => {
+            addLogEntry('match',
+              `⚡ TRIGGER matched: ` +
+              `<span class="log-user">${escapeHtml(sender)}</span> said ` +
+              `<span class="log-phrase">${escapeHtml(trigger.phrase)}</span> in ` +
+              `<span class="log-channel">#${channel}</span>`
+            );
 
-          let response = selectResponse(trigger);
-          // Replace placeholders
-          response = response.replace(/\{username\}/gi, sender);
+            let response = selectResponse(trigger);
+            // Replace placeholders
+            response = response.replace(/\{username\}/gi, sender);
 
-          // Handle counter
-          if (trigger.useCounter) {
-            if (trigger.counterValue === undefined) {
-              trigger.counterValue = trigger.counterStart || 0;
+            // Handle counter
+            if (trigger.useCounter) {
+              if (trigger.counterValue === undefined) {
+                trigger.counterValue = trigger.counterStart || 0;
+              }
+              trigger.counterValue++;
+              response = response.replace(/\{count\}/gi, trigger.counterValue);
+              saveProfiles();
+              // Re-render if this channel is selected
+              if (selectedChannel === channel) {
+                renderTriggerEditor();
+              }
             }
-            trigger.counterValue++;
-            response = response.replace(/\{count\}/gi, trigger.counterValue);
-            saveProfiles();
-            // Re-render if this channel is selected
-            if (selectedChannel === channel) {
-              renderTriggerEditor();
-            }
-          }
 
-          if (response) {
-            // Wait for configured delay
-            if (trigger.delay > 0) {
-              await new Promise(resolve => setTimeout(resolve, trigger.delay * 1000));
+            if (response) {
+              // Wait for configured delay
+              if (trigger.delay > 0) {
+                await new Promise(resolve => setTimeout(resolve, trigger.delay * 1000));
+              }
+              const sent = await sendMessage(channel, response);
+              if (sent) {
+                addLogEntry('sent',
+                  `→ <span class="log-channel">#${channel}</span>: ${escapeHtml(response)}`
+                );
+              } else {
+                addLogEntry('error',
+                  `Failed to send response to <span class="log-channel">#${channel}</span>`
+                );
+              }
             }
-            const sent = await sendMessage(channel, response);
-            if (sent) {
-              addLogEntry('sent',
-                `→ <span class="log-channel">#${channel}</span>: ${escapeHtml(response)}`
-              );
-            } else {
-              addLogEntry('error',
-                `Failed to send response to <span class="log-channel">#${channel}</span> (socket not open)`
-              );
-            }
-          }
-          break; // Only trigger the first match
+          })();
         }
       }
     }
