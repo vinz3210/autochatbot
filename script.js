@@ -8,7 +8,7 @@ function closeHelp() {
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeHelp(); });
 
 // ── Constants ──
-const TWITCH_CLIENT_ID = '8bg8a5nnibxhf2w9uq6oiv0m71plux';
+const TWITCH_CLIENT_ID = '7z77jhf4o6l3r5ejiczohg7j3i0fxh';
 const LS_TOKEN = 'ar_twitch_token';
 const LS_USERNAME = 'ar_twitch_user';
 const LS_PROFILES = 'ar_profiles';
