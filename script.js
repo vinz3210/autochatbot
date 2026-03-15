@@ -398,6 +398,10 @@ function renderTriggerEditor() {
                   <div class="toggle ${t.matchAnywhere ? 'active' : ''}"></div>
                   <span>Anywhere</span>
                 </div>
+                <div class="toggle-wrapper" onclick="toggleRespondToSelf(${i})" title="Allow the bot to respond to its own messages">
+                  <div class="toggle ${t.respondToSelf ? 'active' : ''}"></div>
+                  <span>Respond to Bot</span>
+                </div>
               </div>
               <button class="btn btn-danger btn-icon" onclick="removeTrigger(${i})" title="Delete trigger"
                 style="font-size:0.85rem;">✕</button>
@@ -418,6 +422,7 @@ function addTrigger() {
         cooldown: 0,
         delay: 0,
         enabled: true,
+        respondToSelf: false,
     });
     saveProfiles();
     renderTriggerEditor();
@@ -440,6 +445,15 @@ function updateTrigger(index, field, value) {
     saveProfiles();
 }
 
+
+function toggleRespondToSelf(index) {
+    if (!selectedChannel) return;
+    const t = profiles[selectedChannel].triggers[index];
+    if (!t) return;
+    t.respondToSelf = !t.respondToSelf;
+    saveProfiles();
+    renderTriggerEditor();
+}
 
 function togglePauseChannel() {
     if (!selectedChannel) return;
@@ -678,8 +692,8 @@ async function sendMessage(channel, message) {
 
 // ── Message Handling ──
 async function handleChatMessage(sender, channel, message, tags = {}) {
-    // Don't respond to ourselves
-    if (sender.toLowerCase() === username.toLowerCase()) return;
+    // Log ALL incoming chat messages to the activity panel (optionally skip or show bot's own)
+    const isSelf = sender.toLowerCase() === username.toLowerCase();
 
     // Log ALL incoming chat messages to the activity panel
     addLogEntry('chat',
@@ -695,6 +709,9 @@ async function handleChatMessage(sender, channel, message, tags = {}) {
 
     for (const trigger of profile.triggers) {
         if (!trigger.phrase || trigger.enabled === false) continue;
+
+        // Skip if it's our own message and this trigger doesn't explicitly allow it
+        if (isSelf && !trigger.respondToSelf) continue;
 
         const phraseLower = trigger.phrase.toLowerCase().trim();
         // Match logic: 'Anywhere' or 'Starts with' (includes exact match)
