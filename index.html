@@ -1506,6 +1506,7 @@
       connectIRC();
     }
 
+
     // ── Profiles (localStorage) ──
     function loadProfiles() {
       try {
@@ -1704,6 +1705,10 @@
                   <div class="toggle ${t.matchAnywhere ? 'active' : ''}"></div>
                   <span>Anywhere</span>
                 </div>
+                <div class="toggle-wrapper" onclick="toggleRespondToBot(${i})" title="Allow bot to respond to its own messages for this trigger">
+                  <div class="toggle ${t.respondToBot ? 'active' : ''}"></div>
+                  <span>Respond to Bot</span>
+                </div>
                 <div class="counter-start" style="${counterDisplay}" id="counter-opts-${i}">
                   <label>Start:</label>
                   <input type="number" value="${t.counterStart || 0}"
@@ -1733,6 +1738,7 @@
         delay: 0,
         enabled: true,
         useCounter: false,
+        respondToBot: false,
         counterStart: 0,
         counterValue: 0,
         responses: [],
@@ -1906,6 +1912,15 @@
       const t = profiles[selectedChannel].triggers[index];
       if (!t) return;
       t.enabled = (t.enabled === false) ? true : false;
+      saveProfiles();
+      renderTriggerEditor();
+    }
+
+    function toggleRespondToBot(index) {
+      if (!selectedChannel) return;
+      const t = profiles[selectedChannel].triggers[index];
+      if (!t) return;
+      t.respondToBot = !t.respondToBot;
       saveProfiles();
       renderTriggerEditor();
     }
@@ -2100,23 +2115,32 @@
 
     // ── Message Handling ──
     async function handleChatMessage(sender, channel, message) {
-      // Don't respond to ourselves
-      if (sender.toLowerCase() === username.toLowerCase()) return;
+      // Strip hidden "bypass" characters (like U+034F used to avoid duplicate blocks)
+      const cleanMessage = message.replace(/\u034F/g, '').trim();
 
-      // Log ALL incoming chat messages to the activity panel
+      // Log FULL incoming chat messages to the activity panel
       addLogEntry('chat',
         `<span class="log-channel">#${channel}</span> ` +
         `<span class="log-user">${escapeHtml(sender)}</span>: ` +
         `${escapeHtml(message)}`
       );
 
+      const isSelf = sender.toLowerCase() === (username || "").toLowerCase();
+
       const profile = profiles[channel];
       if (!profile || profile.paused) return;
 
-      const msgLower = message.toLowerCase().trim();
+      const msgLower = cleanMessage.toLowerCase();
+      console.log(`[AutoChatter] Processing message: "${cleanMessage}" for channel: #${channel} (isSelf: ${isSelf})`);
 
       for (const trigger of profile.triggers) {
         if (!trigger.phrase || trigger.enabled === false) continue;
+
+        // Skip if it's our own message and this specific trigger doesn't allow it
+        if (isSelf && !trigger.respondToBot) {
+          console.log(`[AutoChatter] Skipping trigger "${trigger.phrase}" because it's a self-message and Respond to Bot is OFF`);
+          continue;
+        }
 
         const phraseLower = trigger.phrase.toLowerCase().trim();
         // Match logic: 'Anywhere' or 'Starts with' (includes exact match)
@@ -2124,12 +2148,14 @@
           ? msgLower.includes(phraseLower)
           : (msgLower === phraseLower || msgLower.startsWith(phraseLower + ' '));
 
+        console.log(`[AutoChatter] Checking trigger "${trigger.phrase}" (Anywhere: ${trigger.matchAnywhere}) -> Match: ${isMatch}`);
+
         if (isMatch) {
           // Check allowed users filter
           if (trigger.allowedUsers && trigger.allowedUsers.trim()) {
             const allowed = trigger.allowedUsers.toLowerCase().split(',').map(u => u.trim()).filter(u => u);
             if (allowed.length > 0 && !allowed.includes(sender.toLowerCase())) {
-              // User not in allowlist, skip
+              console.log(`[AutoChatter] User ${sender} not in allowed list: ${allowed.join(', ')}`);
               continue;
             }
           }
@@ -2138,7 +2164,7 @@
           if (trigger.disallowedUsers && trigger.disallowedUsers.trim()) {
             const disallowed = trigger.disallowedUsers.toLowerCase().split(',').map(u => u.trim()).filter(u => u);
             if (disallowed.includes(sender.toLowerCase())) {
-              // User is blacklisted, skip
+              console.log(`[AutoChatter] User ${sender} is in disallowed list`);
               continue;
             }
           }
@@ -2148,10 +2174,8 @@
           const cooldownMs = Math.max(500, (trigger.cooldown || 0) * 1000);
           if (trigger.lastTriggered && (now - trigger.lastTriggered) < cooldownMs) {
             // Still on cooldown
-            if (trigger.cooldown > 0) {
-              const remaining = Math.ceil((cooldownMs - (now - trigger.lastTriggered)) / 1000);
-              console.log(`[AutoChatter] Trigger "${trigger.phrase}" on cooldown. ${remaining}s left.`);
-            }
+            const remaining = Math.ceil((cooldownMs - (now - trigger.lastTriggered)) / 1000);
+            console.log(`[AutoChatter] Trigger "${trigger.phrase}" on cooldown. ${remaining}s left.`);
             continue;
           }
           trigger.lastTriggered = now;
