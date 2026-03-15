@@ -287,6 +287,118 @@
       font-weight: 800;
     }
 
+    /* ── Reuse Triggers ── */
+    .reuse-container {
+      position: relative;
+    }
+
+    .reuse-dropdown {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      min-width: 220px;
+      z-index: 1000;
+      display: none;
+      box-shadow: var(--shadow);
+      padding: 0.5rem 0;
+      margin-top: 0.5rem;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .reuse-dropdown.active {
+      display: block;
+    }
+
+    .reuse-channel-item {
+      padding: 0.7rem 1.25rem;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: relative;
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: var(--text-dim);
+      transition: all var(--transition);
+    }
+
+    .reuse-channel-item:hover {
+      background: var(--surface2);
+      color: var(--text);
+    }
+
+    .reuse-channel-item .chevron {
+      font-size: 0.7rem;
+      opacity: 0.5;
+    }
+
+    .reuse-trigger-list {
+      position: absolute;
+      right: 100%;
+      top: -1px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      width: 280px;
+      display: none;
+      box-shadow: var(--shadow);
+      padding: 0.5rem 0;
+      margin-right: 0.5rem;
+      max-height: 400px;
+      overflow-y: auto;
+      z-index: 1001;
+    }
+
+    .reuse-channel-item:hover .reuse-trigger-list {
+      display: block;
+    }
+
+    .reuse-trigger-item {
+      padding: 0.75rem 1rem;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      transition: all var(--transition);
+    }
+
+    .reuse-trigger-item:last-child {
+      border-bottom: none;
+    }
+
+    .reuse-trigger-item:hover {
+      background: var(--surface2);
+    }
+
+    .reuse-trigger-phrase {
+      font-weight: 700;
+      font-size: 0.85rem;
+      display: block;
+      margin-bottom: 0.2rem;
+      color: var(--accent);
+    }
+
+    .reuse-trigger-response {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .reuse-trigger-more {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin-left: 0.35rem;
+      background: var(--surface3);
+      padding: 0.1rem 0.3rem;
+      border-radius: 4px;
+    }
+
     .btn-icon {
       width: 32px;
       height: 32px;
@@ -1179,6 +1291,13 @@
               <div style="display:flex; gap:0.5rem;">
                 <button id="channel-pause-btn" class="btn" onclick="togglePauseChannel()"
                   style="font-size:0.82rem; padding:0.45rem 0.9rem;"></button>
+                <div class="reuse-container">
+                  <button class="btn btn-ghost" onclick="toggleReuseDropdown(event)"
+                    style="font-size:0.82rem; padding:0.45rem 0.9rem;">Reuse Trigger</button>
+                  <div class="reuse-dropdown" id="reuse-dropdown">
+                    <!-- populated dynamically -->
+                  </div>
+                </div>
                 <button class="btn btn-primary" onclick="addTrigger()"
                   style="font-size:0.82rem; padding:0.45rem 0.9rem;">+ Add Trigger</button>
               </div>
@@ -1643,6 +1762,87 @@
       // Only re-render if counter visibility changed
       if (field === 'useCounter') renderTriggerEditor();
     }
+
+    // ── Reuse Logic ──
+    function toggleReuseDropdown(event) {
+      event.stopPropagation();
+      const dd = document.getElementById('reuse-dropdown');
+      const isActive = dd.classList.contains('active');
+
+      if (!isActive) {
+        renderReuseDropdown();
+        dd.classList.add('active');
+      } else {
+        dd.classList.remove('active');
+      }
+    }
+
+    function renderReuseDropdown() {
+      const dd = document.getElementById('reuse-dropdown');
+      const otherChannels = Object.keys(profiles).filter(ch => ch !== selectedChannel);
+
+      if (otherChannels.length === 0) {
+        dd.innerHTML = '<div style="padding:0.75rem 1rem; color:var(--text-muted); font-size:0.8rem; text-align:center;">Add other channels first</div>';
+        return;
+      }
+
+      dd.innerHTML = otherChannels.map(ch => {
+        const triggers = profiles[ch].triggers;
+        const triggerListHtml = triggers.length > 0 ? triggers.map((t, idx) => {
+          const firstResp = (t.responses && t.responses.length > 0)
+            ? t.responses[0].text
+            : (t.response || 'No response');
+          const moreCount = (t.responses && t.responses.length > 1)
+            ? t.responses.length - 1
+            : 0;
+
+          return `
+            <div class="reuse-trigger-item" onclick="copyTrigger('${ch}', ${idx})">
+              <span class="reuse-trigger-phrase">${escapeHtml(t.phrase || '(no phrase)')}</span>
+              <span class="reuse-trigger-response">
+                ${escapeHtml(firstResp)}
+                ${moreCount > 0 ? `<span class="reuse-trigger-more">+${moreCount}</span>` : ''}
+              </span>
+            </div>
+          `;
+        }).join('') : '<div style="padding:0.75rem 1rem; color:var(--text-muted); font-size:0.8rem; text-align:center;">No triggers in this channel</div>';
+
+        return `
+          <div class="reuse-channel-item">
+            <span>#${ch}</span>
+            <span class="chevron">◀</span>
+            <div class="reuse-trigger-list">
+              ${triggerListHtml}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function copyTrigger(fromChannel, idx) {
+      if (!selectedChannel) return;
+      const source = profiles[fromChannel].triggers[idx];
+      if (!source) return;
+
+      // Deep copy the trigger
+      const newTrigger = JSON.parse(JSON.stringify(source));
+      // Reset stateful fields
+      newTrigger.lastTriggered = 0;
+      newTrigger.counterValue = newTrigger.counterStart || 0;
+
+      profiles[selectedChannel].triggers.push(newTrigger);
+      saveProfiles();
+      renderTriggerEditor();
+      renderChannelList();
+
+      document.getElementById('reuse-dropdown').classList.remove('active');
+      addLogEntry('info', `Copied trigger <strong>${escapeHtml(source.phrase)}</strong> from <span class="log-channel">#${fromChannel}</span>`);
+    }
+
+    // Close dropdown on outside click
+    window.addEventListener('click', () => {
+      document.getElementById('reuse-dropdown').classList.remove('active');
+    });
 
     function addResponse(triggerIndex) {
       if (!selectedChannel) return;
