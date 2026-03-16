@@ -1060,17 +1060,70 @@ body {
     margin-bottom: 0.5rem;
 }
 
+/* ── Info Icon & Tooltip ── */
+.info-icon {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: help;
+    position: relative;
+    transition: all var(--transition);
+}
+
+.info-icon:hover {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.info-icon::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%) translateY(-4px);
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.6rem 0.8rem;
+    border-radius: var(--radius);
+    font-size: 0.75rem;
+    font-weight: 400;
+    width: 200px;
+    white-space: normal;
+    box-shadow: var(--shadow);
+    opacity: 0;
+    pointer-events: none;
+    transition: all var(--transition);
+    z-index: 1000;
+    text-transform: none;
+    line-height: 1.4;
+}
+
+.info-icon:hover::after {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
 .model-selection-login select {
     width: 100%;
-    padding: 0.7rem 1rem;
+    padding: 0.7rem 0.9rem;
     background: var(--surface2);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     color: var(--text);
-    font-size: 0.9rem;
     font-family: inherit;
+    font-size: 0.9rem;
     cursor: pointer;
-    transition: all var(--transition);
+    transition: border-color var(--transition);
 }
 
 .model-selection-login select:focus {
@@ -1080,12 +1133,33 @@ body {
 
 .model-warning {
     margin-top: 0.75rem;
-    padding: 0.75rem;
+    padding: 0.6rem 0.8rem;
     background: var(--warning-soft);
-    color: var(--warning);
     border: 1px solid rgba(255, 171, 0, 0.2);
-    border-radius: var(--radius);
-    font-size: 0.8rem;
+    border-radius: 6px;
+    color: var(--warning);
+    font-size: 0.78rem;
     line-height: 1.4;
-    animation: fadeIn 0.3s ease;
+    text-align: left;
+}
+
+.model-select-compact {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.82rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.model-select-compact:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.header-model-selector {
+    display: flex;
+    align-items: center;
 }

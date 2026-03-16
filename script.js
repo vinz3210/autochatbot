@@ -15,6 +15,8 @@ const LS_PROFILES = 'ar_profiles';
 const LS_MODEL = 'ar_ai_model';
 const LS_LOCAL_URL = 'ar_local_url';
 const LS_LOCAL_MODEL = 'ar_local_model';
+const LS_LOCAL_KEY = 'ar_local_key';
+const LS_API_CACHE = 'ar_api_cache';
 const IRC_URL = 'wss://irc-ws.chat.twitch.tv:443';
 
 const MODELS = {
@@ -50,11 +52,76 @@ const MODELS = {
     },
     "local": {
         id: "local",
-        label: "Local API (Ollama/LM Studio)",
-        description: "Connect to a local model server. No VRAM leaks.",
+        label: "Custom API (Local or External)",
+        description: "Connect to a local or external model server. No VRAM leaks.",
         warning: ""
     }
 };
+
+const API_PROBES = [
+    {
+        name: 'OpenAI Compatible',
+        path: '/chat/completions',
+        headers: (key) => ({ 'Authorization': `Bearer ${key}` }),
+        body: (model, prompt) => ({
+            model,
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.7,
+            max_tokens: 250
+        }),
+        parse: (data) => data.choices?.[0]?.message?.content
+    },
+    {
+        name: 'OpenAI V1',
+        path: '/v1/chat/completions',
+        headers: (key) => ({ 'Authorization': `Bearer ${key}` }),
+        body: (model, prompt) => ({
+            model,
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.7,
+            max_tokens: 250
+        }),
+        parse: (data) => data.choices?.[0]?.message?.content
+    },
+    {
+        name: 'Anthropic',
+        path: '/v1/messages',
+        headers: (key) => ({
+            'x-api-key': key,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true'
+        }),
+        body: (model, prompt) => ({
+            model,
+            messages: [{ role: 'user', content: prompt }],
+            max_tokens: 250
+        }),
+        parse: (data) => data.content?.[0]?.text
+    },
+    {
+        name: 'Ollama',
+        path: '/api/chat',
+        headers: (key) => ({}),
+        body: (model, prompt) => ({
+            model,
+            messages: [{ role: 'user', content: prompt }],
+            stream: false
+        }),
+        parse: (data) => data.message?.content
+    },
+    {
+        name: 'Direct (No Path)',
+        path: '',
+        headers: (key) => ({ 'Authorization': `Bearer ${key}` }),
+        body: (model, prompt) => ({
+            model,
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.7,
+            max_tokens: 250
+        }),
+        parse: (data) => data.choices?.[0]?.message?.content || data.content?.[0]?.text || data.message?.content
+    }
+];
 
 // ── State ──
 let accessToken = '';
@@ -907,8 +974,8 @@ async function initAI(forceReload = false) {
         const localModel = localStorage.getItem(LS_LOCAL_MODEL) || '';
         const progressContainer = document.getElementById('ai-progress-container');
         if (progressContainer) progressContainer.style.display = 'none';
-        updateMonitorStatus(localModel ? `Local API: ${localModel}` : 'Local API: configure URL & model');
-        addLogEntry('info', `Using local API${localUrl ? ': ' + localUrl : ' (not configured)'}`);
+        updateMonitorStatus(localModel ? `API: ${localModel}` : 'Custom API: configure URL & model');
+        addLogEntry('info', `Using Custom API${localUrl ? ': ' + localUrl : ' (not configured)'}`);
         refreshMonitorStatus();
         return;
     }
@@ -1036,14 +1103,17 @@ function renderLocalConfig() {
     const isLocal = currentModelKey === 'local';
     const url = localStorage.getItem(LS_LOCAL_URL) || '';
     const model = localStorage.getItem(LS_LOCAL_MODEL) || '';
+    const key = localStorage.getItem(LS_LOCAL_KEY) || '';
 
     const loginConfig = document.getElementById('local-config-login');
     if (loginConfig) {
         loginConfig.style.display = isLocal ? 'block' : 'none';
         const u = document.getElementById('local-url-login');
         const m = document.getElementById('local-model-login');
+        const k = document.getElementById('local-key-login');
         if (u) u.value = url;
         if (m) m.value = model;
+        if (k) k.value = key;
     }
 
     const headerConfig = document.getElementById('local-config-bar');
@@ -1051,31 +1121,37 @@ function renderLocalConfig() {
         headerConfig.style.display = isLocal ? 'flex' : 'none';
         const u = document.getElementById('local-url-header');
         const m = document.getElementById('local-model-header');
+        const k = document.getElementById('local-key-header');
         if (u) u.value = url;
         if (m) m.value = model;
+        if (k) k.value = key;
     }
 }
 
 function updateLocalConfig(source) {
-    let url, model;
+    let url, model, key;
     if (source === 'login') {
-        url = document.getElementById('local-url-login')?.value || '';
-        model = document.getElementById('local-model-login')?.value || '';
+        url = (document.getElementById('local-url-login')?.value || '').trim();
+        model = (document.getElementById('local-model-login')?.value || '').trim();
+        key = (document.getElementById('local-key-login')?.value || '').trim();
     } else {
-        url = document.getElementById('local-url-header')?.value || '';
-        model = document.getElementById('local-model-header')?.value || '';
+        url = (document.getElementById('local-url-header')?.value || '').trim();
+        model = (document.getElementById('local-model-header')?.value || '').trim();
+        key = (document.getElementById('local-key-header')?.value || '').trim();
     }
     localStorage.setItem(LS_LOCAL_URL, url);
     localStorage.setItem(LS_LOCAL_MODEL, model);
+    localStorage.setItem(LS_LOCAL_KEY, key);
     renderLocalConfig();
     if (currentModelKey === 'local') {
-        updateMonitorStatus(model ? `Local API: ${model}` : 'Local API: configure URL & model');
+        updateMonitorStatus(model ? `API: ${model}` : 'Custom API: configure URL & model');
     }
 }
 
 async function generateLocalResponse(prePrompt, variables) {
     const localUrl = localStorage.getItem(LS_LOCAL_URL) || '';
     const localModel = localStorage.getItem(LS_LOCAL_MODEL) || '';
+    const apiKey = localStorage.getItem(LS_LOCAL_KEY) || '';
 
     if (!localUrl || !localModel) {
         addLogEntry('error', 'Local API not configured — set the URL and model name.');
@@ -1090,25 +1166,69 @@ async function generateLocalResponse(prePrompt, variables) {
         prompt = prompt.replace(regex, value);
     }
 
-    try {
-        const res = await fetch(`${localUrl.replace(/\/+$/, '')}/chat/completions`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: localModel,
-                messages: [{ role: 'user', content: prompt }],
-                temperature: 0.7,
-                max_tokens: 250,
-            }),
-        });
+    // Wrap the full prompt context for the AI
+    let context_message_string = variables.context_messages ? `\ncontext_messages: ${variables.context_messages}` : "";
+    let reply_context_string = variables.reply_context ? `\nreply_context: ${variables.reply_context}` : "";
+    const fullPrompt = `author: ${variables.author}\n\n${context_message_string}\n${reply_context_string}\nprompt: ${prompt}\nmessage: ${variables.message}`;
 
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(`${res.status}: ${err.error?.message || err.message || 'Server error'}`);
+    try {
+        const baseUrl = localUrl.replace(/\/+$/, '');
+        let cache = {};
+        try { cache = JSON.parse(localStorage.getItem(LS_API_CACHE) || '{}'); } catch (e) { }
+
+        const tryProbe = async (probe, isTest = false) => {
+            const url = `${baseUrl}${probe.path}`;
+            const headers = { 'Content-Type': 'application/json', ...probe.headers(apiKey) };
+            const body = probe.body(localModel, fullPrompt);
+
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(body),
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(`${res.status}: ${err.error?.message || err.message || 'Server error'}`);
+            }
+
+            const data = await res.json();
+            const content = probe.parse(data);
+            if (!content) throw new Error("Invalid response format (empty content)");
+            return content;
+        };
+
+        // 1. Try cached probe
+        const cachedPath = cache[baseUrl];
+        if (cachedPath !== undefined) {
+            const probe = API_PROBES.find(p => p.path === cachedPath);
+            if (probe) {
+                try {
+                    return await tryProbe(probe);
+                } catch (e) {
+                    console.warn(`Cached probe ${probe.name} failed, retrying discovery:`, e);
+                }
+            }
         }
 
-        const data = await res.json();
-        return data.choices[0]?.message?.content?.trim() || null;
+        // 2. Discovery
+        for (const probe of API_PROBES) {
+            try {
+                addLogEntry('info', `Probing API structure: <b>${probe.name}</b>...`);
+                const result = await tryProbe(probe);
+
+                // Success! Save to cache
+                cache[baseUrl] = probe.path;
+                localStorage.setItem(LS_API_CACHE, JSON.stringify(cache));
+                addLogEntry('info', `✓ API structure discovered & saved: <b>${probe.name}</b>`);
+                return result;
+            } catch (e) {
+                console.log(`Probe ${probe.name} failed:`, e.message);
+            }
+        }
+
+        throw new Error("All known API structures failed. Check your URL and if the model name is correct.");
+
     } catch (err) {
         console.error("Local AI Error:", err);
         addLogEntry('error', `Local AI failed: ${err.message}`);
