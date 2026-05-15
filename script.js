@@ -60,6 +60,18 @@ const MODELS = {
 
 const API_PROBES = [
     {
+        name: 'OpenAI V1',
+        path: '/v1/chat/completions',
+        headers: (key) => ({ 'Authorization': `Bearer ${key}` }),
+        body: (model, prompt) => ({
+            model,
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.7,
+            max_tokens: 250
+        }),
+        parse: (data) => data.choices?.[0]?.message?.content || data.choices?.[0]?.text
+    },
+    {
         name: 'OpenAI Compatible',
         path: '/chat/completions',
         headers: (key) => ({ 'Authorization': `Bearer ${key}` }),
@@ -72,16 +84,27 @@ const API_PROBES = [
         parse: (data) => data.choices?.[0]?.message?.content
     },
     {
-        name: 'OpenAI V1',
-        path: '/v1/chat/completions',
-        headers: (key) => ({ 'Authorization': `Bearer ${key}` }),
+        name: 'Ollama',
+        path: '/api/chat',
+        headers: (key) => ({}),
         body: (model, prompt) => ({
             model,
             messages: [{ role: 'user', content: prompt }],
-            temperature: 0.7,
-            max_tokens: 250
+            stream: false
         }),
-        parse: (data) => data.choices?.[0]?.message?.content
+        parse: (data) => data.message?.content || data.response
+    },
+    {
+        name: 'Text Completion',
+        path: '/v1/completions',
+        headers: (key) => ({ 'Authorization': `Bearer ${key}` }),
+        body: (model, prompt) => ({
+            model,
+            prompt: prompt,
+            max_tokens: 250,
+            temperature: 0.7
+        }),
+        parse: (data) => data.choices?.[0]?.text
     },
     {
         name: 'Anthropic',
@@ -97,17 +120,6 @@ const API_PROBES = [
             max_tokens: 250
         }),
         parse: (data) => data.content?.[0]?.text
-    },
-    {
-        name: 'Ollama',
-        path: '/api/chat',
-        headers: (key) => ({}),
-        body: (model, prompt) => ({
-            model,
-            messages: [{ role: 'user', content: prompt }],
-            stream: false
-        }),
-        parse: (data) => data.message?.content
     },
     {
         name: 'Direct (No Path)',
@@ -1142,6 +1154,10 @@ function updateLocalConfig(source) {
     localStorage.setItem(LS_LOCAL_URL, url);
     localStorage.setItem(LS_LOCAL_MODEL, model);
     localStorage.setItem(LS_LOCAL_KEY, key);
+    
+    // Clear the discovery cache so it re-probes with the new config
+    localStorage.removeItem(LS_API_CACHE);
+    
     renderLocalConfig();
     if (currentModelKey === 'local') {
         updateMonitorStatus(model ? `API: ${model}` : 'Custom API: configure URL & model');
@@ -1172,13 +1188,35 @@ async function generateLocalResponse(prePrompt, variables) {
     const fullPrompt = `author: ${variables.author}\n\n${context_message_string}\n${reply_context_string}\nprompt: ${prompt}\nmessage: ${variables.message}`;
 
     try {
-        const baseUrl = localUrl.replace(/\/+$/, '');
+        let baseUrlRaw = localUrl.trim();
+        let forcedProbe = null;
+
+        // Check if user already provided a full endpoint path
+        for (const probe of API_PROBES) {
+            if (probe.path && (baseUrlRaw.endsWith(probe.path) || baseUrlRaw.endsWith(probe.path + '/'))) {
+                forcedProbe = probe;
+                baseUrlRaw = baseUrlRaw.split(probe.path)[0];
+                break;
+            }
+        }
+
+        const baseUrl = baseUrlRaw.replace(/\/+$/, '');
         let cache = {};
         try { cache = JSON.parse(localStorage.getItem(LS_API_CACHE) || '{}'); } catch (e) { }
 
         const tryProbe = async (probe, isTest = false) => {
             const url = `${baseUrl}${probe.path}`;
-            const headers = { 'Content-Type': 'application/json', ...probe.headers(apiKey) };
+            console.log(`[AutoChatbot] Trying probe: ${probe.name} at ${url}`);
+            
+            const probeHeaders = probe.headers(apiKey);
+            const headers = { 'Content-Type': 'application/json' };
+            
+            for (const [k, v] of Object.entries(probeHeaders)) {
+                if (k.toLowerCase() === 'authorization' && (!v || v === 'Bearer ' || v.length < 8)) continue;
+                if (k.toLowerCase() === 'x-api-key' && !v) continue;
+                headers[k] = v;
+            }
+            
             const body = probe.body(localModel, fullPrompt);
 
             const res = await fetch(url, {
@@ -1187,18 +1225,40 @@ async function generateLocalResponse(prePrompt, variables) {
                 body: JSON.stringify(body),
             });
 
+            const data = await res.json().catch(() => null);
+
             if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                throw new Error(`${res.status}: ${err.error?.message || err.message || 'Server error'}`);
+                const msg = data?.error?.message || data?.error || data?.message || `Status ${res.status}`;
+                throw new Error(msg);
             }
 
-            const data = await res.json();
+            if (!data) throw new Error("Empty response from server");
+
+            // Check for common "success but error" formats
+            const errorInBody = data.error || data.err || (data.status === 'error' ? data.message : null);
+            if (errorInBody) {
+                const errorStr = typeof errorInBody === 'object' ? (errorInBody.message || JSON.stringify(errorInBody)) : String(errorInBody);
+                throw new Error(errorStr);
+            }
+
             const content = probe.parse(data);
-            if (!content) throw new Error("Invalid response format (empty content)");
+            if (!content) {
+                console.warn(`[AutoChatbot] Probe ${probe.name} returned 200 but parse failed. Data:`, data);
+                throw new Error("Response matched endpoint but content structure was unrecognized.");
+            }
             return content;
         };
 
-        // 1. Try cached probe
+        // 1. Try forced probe (if user provided full URL)
+        if (forcedProbe) {
+            try {
+                return await tryProbe(forcedProbe);
+            } catch (e) {
+                console.warn(`Provided full URL probe failed:`, e);
+            }
+        }
+
+        // 2. Try cached probe
         const cachedPath = cache[baseUrl];
         if (cachedPath !== undefined) {
             const probe = API_PROBES.find(p => p.path === cachedPath);
@@ -1214,7 +1274,7 @@ async function generateLocalResponse(prePrompt, variables) {
         // 2. Discovery
         for (const probe of API_PROBES) {
             try {
-                addLogEntry('info', `Probing API structure: <b>${probe.name}</b>...`);
+                addLogEntry('info', `Probing: <b>${probe.name}</b>...`);
                 const result = await tryProbe(probe);
 
                 // Success! Save to cache
@@ -1224,6 +1284,10 @@ async function generateLocalResponse(prePrompt, variables) {
                 return result;
             } catch (e) {
                 console.log(`Probe ${probe.name} failed:`, e.message);
+                // Log slightly more detail to activity so user knows WHY it failed
+                if (!e.message.includes('endpoint')) {
+                    addLogEntry('info', `<span style="opacity:0.6; font-size:0.75rem;">— ${probe.name} failed: ${e.message}</span>`);
+                }
             }
         }
 
