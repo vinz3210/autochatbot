@@ -1014,6 +1014,50 @@
       font-size: 0.9rem;
     }
 
+    /* ── Ranked Mode ── */
+    .ranked-mode-card {
+      background: var(--surface);
+      border: 1px solid rgba(145, 71, 255, 0.25);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem;
+      margin-top: 1.5rem;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .ranked-mode-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .ranked-counter-display {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--accent);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .ranked-preview {
+      margin-top: 0.85rem;
+      padding: 0.65rem 0.85rem;
+      background: var(--surface2);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .ranked-preview-title {
+      font-weight: 700;
+      color: var(--text);
+      flex: 1;
+      text-align: center;
+    }
+
     /* Responsive */
     @media (max-width: 900px) {
       .activity-panel {
@@ -1309,6 +1353,7 @@
               <div class="icon">⚡</div>
               <p>No triggers yet. Add one to get started!</p>
             </div>
+            <div id="ranked-mode-container"></div>
           </div>
         </div>
         <div class="monitor-bar">
@@ -1364,6 +1409,10 @@
     let reconnectTimer = null;
     let activityLog = [];
     let lastSentMessages = {}; // channelName -> lastMsg (to avoid duplicate blocks)
+    let previousLatestGamesState = {}; // channelName -> latestGames array for ranked tracking
+    let previousRatingState = {}; // channelName -> last seen ELO rating (streak fallback)
+    let rankedPollInterval = null;
+    let rankedTestResult = null; // { ok, message } shown in the card
 
     // ── Init ──
     window.addEventListener('DOMContentLoaded', () => {
@@ -1373,7 +1422,7 @@
     // ── OAuth ──
     function loginWithTwitch() {
       const redirectUri = window.location.origin + window.location.pathname;
-      const scopes = 'user:read:email chat:read chat:edit user:write:chat user:bot';
+      const scopes = 'user:read:email chat:read chat:edit user:write:chat user:bot channel:manage:broadcast';
       const authUrl = 'https://id.twitch.tv/oauth2/authorize'
         + '?client_id=' + encodeURIComponent(TWITCH_CLIENT_ID)
         + '&redirect_uri=' + encodeURIComponent(redirectUri)
@@ -1504,6 +1553,7 @@
       loadProfiles();
       renderChannelList();
       connectIRC();
+      startRankedPolling();
     }
 
 
@@ -1610,22 +1660,20 @@
       if (triggers.length === 0) {
         list.innerHTML = '';
         empty.style.display = 'block';
-        return;
-      }
-
-      empty.style.display = 'none';
-
-      // Update channel pause button
-      const pauseBtn = document.getElementById('channel-pause-btn');
-      if (profiles[selectedChannel].paused) {
-        pauseBtn.className = 'btn btn-success';
-        pauseBtn.innerHTML = '▶ Resume Channel';
       } else {
-        pauseBtn.className = 'btn btn-warning';
-        pauseBtn.innerHTML = '⏸ Pause Channel';
-      }
+        empty.style.display = 'none';
 
-      list.innerHTML = triggers.map((t, i) => {
+        // Update channel pause button
+        const pauseBtn = document.getElementById('channel-pause-btn');
+        if (profiles[selectedChannel].paused) {
+          pauseBtn.className = 'btn btn-success';
+          pauseBtn.innerHTML = '▶ Resume Channel';
+        } else {
+          pauseBtn.className = 'btn btn-warning';
+          pauseBtn.innerHTML = '⏸ Pause Channel';
+        }
+
+        list.innerHTML = triggers.map((t, i) => {
         const counterClass = t.useCounter ? 'active' : '';
         const anywhereClass = t.matchAnywhere ? 'active' : '';
         const enabledClass = (t.enabled !== false) ? 'active' : '';
@@ -1724,6 +1772,9 @@
           </div>
         `;
       }).join('');
+      } // end else (triggers.length > 0)
+
+      document.getElementById('ranked-mode-container').innerHTML = renderRankedModeCard();
     }
 
     function addTrigger() {
@@ -2318,6 +2369,282 @@
     // Re-update status bar when profiles change
     function refreshMonitorStatus() {
       if (ircConnected) updateConnectionUI('connected');
+    }
+
+    // ── Ranked Mode ──
+    const RANKED_DATA_URL = 'https://geoguessr-elo-tracker.lonanche.workers.dev/api/progress/637272cf1443c23536ef8202';
+
+    function countNewLatestGames(previous, current) {
+      if (!previous || !current) return 0;
+      const maxShift = Math.min(current.length, previous.length);
+      for (let shift = 0; shift <= maxShift; shift++) {
+        const remainingCurrent = current.slice(shift);
+        const previousPrefix = previous.slice(0, remainingCurrent.length);
+        if (remainingCurrent.join(',') === previousPrefix.join(',')) return shift;
+      }
+      return 1;
+    }
+
+    function startRankedPolling() {
+      if (rankedPollInterval) clearInterval(rankedPollInterval);
+      pollAllRankedModes();
+      rankedPollInterval = setInterval(pollAllRankedModes, 15000);
+    }
+
+    async function pollAllRankedModes() {
+      for (const [channel, profile] of Object.entries(profiles)) {
+        const rm = profile.rankedMode;
+        if (!rm || !rm.enabled) continue;
+        try {
+          const res = await fetch(RANKED_DATA_URL, { headers: { 'Accept': 'application/json' } });
+          if (!res.ok) continue;
+          const data = await res.json();
+          if (!data.latestGames) continue;
+
+          const prev = previousLatestGamesState[channel];
+          const prevRating = previousRatingState[channel];
+          if (prev !== undefined && prev !== null) {
+            let newGames = countNewLatestGames(prev, data.latestGames);
+            let source = 'latestGames';
+
+            // Fallback: a uniform win/loss streak leaves latestGames unchanged.
+            // ELO almost always moves per ranked duel, so a rating change with
+            // no array shift means a game the pattern hid → count it as +1.
+            if (
+              newGames === 0 &&
+              prevRating !== undefined && prevRating !== null &&
+              data.rating != null &&
+              data.rating !== prevRating
+            ) {
+              newGames = 1;
+              source = `rating ${prevRating}→${data.rating}`;
+            }
+
+            if (newGames > 0) {
+              rm.currentCount = (rm.currentCount ?? rm.startCount ?? 0) + newGames;
+              saveProfiles();
+              if (selectedChannel === channel) renderTriggerEditor();
+              const count = rm.currentCount;
+              const goal = rm.goal || 3000;
+              addLogEntry('info',
+                `🏆 Ranked: ${count}/${goal} (+${newGames} via ${source}) — updating title for <span class="log-channel">#${channel}</span>`
+              );
+              updateStreamTitle(`ränked. ${count}/${goal}`);
+            }
+          }
+          previousLatestGamesState[channel] = data.latestGames.slice();
+          if (data.rating != null) previousRatingState[channel] = data.rating;
+        } catch (e) {
+          console.warn('[Ranked] Poll failed for', channel, e);
+        }
+      }
+    }
+
+    async function updateStreamTitle(title) {
+      if (!userId) {
+        addLogEntry('error', 'Cannot update title: user ID not available. Try logging out and back in.');
+        return false;
+      }
+      try {
+        const res = await fetch(`https://api.twitch.tv/helix/channels?broadcaster_id=${userId}`, {
+          method: 'PATCH',
+          headers: {
+            'Client-ID': TWITCH_CLIENT_ID,
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ title }),
+        });
+        if (res.ok || res.status === 204) {
+          addLogEntry('sent', `Title updated: "${escapeHtml(title)}"`);
+          return true;
+        } else {
+          const err = await res.json().catch(() => ({}));
+          addLogEntry('error',
+            `Title update failed (${res.status}): ${err.message || 'Unknown error'} — ` +
+            `ensure <code>channel:manage:broadcast</code> scope (log out and back in)`
+          );
+          return false;
+        }
+      } catch (e) {
+        addLogEntry('error', `Title update error: ${e.message}`);
+        return false;
+      }
+    }
+
+    function getRankedMode(channel) {
+      if (!profiles[channel]) return null;
+      if (!profiles[channel].rankedMode) {
+        profiles[channel].rankedMode = {
+          enabled: false,
+          startCount: 0,
+          currentCount: 0,
+          goal: 3000,
+        };
+      }
+      return profiles[channel].rankedMode;
+    }
+
+    function updateRankedField(field, value) {
+      if (!selectedChannel) return;
+      const rm = getRankedMode(selectedChannel);
+      if (!rm) return;
+      rm[field] = value;
+      if (field === 'startCount') rm.currentCount = value;
+      saveProfiles();
+    }
+
+    function toggleRankedModeEnabled() {
+      if (!selectedChannel) return;
+      const rm = getRankedMode(selectedChannel);
+      if (!rm) return;
+      rm.enabled = !rm.enabled;
+      saveProfiles();
+      renderTriggerEditor();
+      if (rm.enabled) {
+        startRankedPolling();
+        addLogEntry('info', `Ranked mode enabled for <span class="log-channel">#${selectedChannel}</span>`);
+      }
+    }
+
+    function resetRankedCount() {
+      if (!selectedChannel) return;
+      const rm = getRankedMode(selectedChannel);
+      if (!rm) return;
+      rm.currentCount = rm.startCount ?? 0;
+      saveProfiles();
+      renderTriggerEditor();
+    }
+
+    function adjustRankedCount(delta) {
+      if (!selectedChannel) return;
+      const rm = getRankedMode(selectedChannel);
+      if (!rm) return;
+      rm.currentCount = Math.max(0, (rm.currentCount ?? rm.startCount ?? 0) + delta);
+      saveProfiles();
+      renderTriggerEditor();
+    }
+
+    async function pushRankedTitle() {
+      if (!selectedChannel) return;
+      const rm = getRankedMode(selectedChannel);
+      if (!rm) return;
+      const count = rm.currentCount ?? rm.startCount ?? 0;
+      const goal = rm.goal ?? 3000;
+      await updateStreamTitle(`ränked. ${count}/${goal}`);
+    }
+
+    async function testRankedEndpoint() {
+      rankedTestResult = { ok: null, message: 'Fetching…' };
+      renderTriggerEditor();
+
+      try {
+        const res = await fetch(RANKED_DATA_URL, { headers: { 'Accept': 'application/json' } });
+        if (!res.ok) {
+          rankedTestResult = { ok: false, message: `HTTP ${res.status} — endpoint returned an error.` };
+          renderTriggerEditor();
+          return;
+        }
+
+        let data;
+        try {
+          data = await res.json();
+        } catch (e) {
+          rankedTestResult = { ok: false, message: 'Response is not valid JSON. The endpoint may be returning HTML instead.' };
+          renderTriggerEditor();
+          return;
+        }
+
+        if (!data.latestGames) {
+          const keys = Object.keys(data).slice(0, 6).join(', ');
+          rankedTestResult = { ok: false, message: `No "latestGames" field found. Keys present: ${keys || '(none)'}` };
+          renderTriggerEditor();
+          return;
+        }
+
+        if (!Array.isArray(data.latestGames)) {
+          rankedTestResult = { ok: false, message: `"latestGames" exists but is not an array (got ${typeof data.latestGames}).` };
+          renderTriggerEditor();
+          return;
+        }
+
+        const len = data.latestGames.length;
+        const preview = data.latestGames.slice(0, 5).map(v => v ? 'W' : 'L').join(' ');
+        rankedTestResult = { ok: true, message: `${len} game${len !== 1 ? 's' : ''} in latest batch — ${preview}${len > 5 ? ' …' : ''}` };
+        renderTriggerEditor();
+      } catch (e) {
+        rankedTestResult = { ok: false, message: `Fetch failed: ${e.message}` };
+        renderTriggerEditor();
+      }
+    }
+
+    function renderRankedModeCard() {
+      if (!selectedChannel) return '';
+      const rm = getRankedMode(selectedChannel);
+      const currentCount = rm.currentCount ?? rm.startCount ?? 0;
+      const goal = rm.goal ?? 3000;
+      const titlePreview = `ränked. ${currentCount}/${goal}`;
+
+      const testHtml = (() => {
+        if (!rankedTestResult) return '';
+        if (rankedTestResult.ok === null) {
+          return `<div style="margin-top:0.6rem; font-size:0.8rem; color:var(--text-muted);">⏳ ${escapeHtml(rankedTestResult.message)}</div>`;
+        }
+        const color = rankedTestResult.ok ? 'var(--success)' : 'var(--danger)';
+        const icon = rankedTestResult.ok ? '✅' : '❌';
+        return `<div style="margin-top:0.6rem; font-size:0.8rem; color:${color};">${icon} ${escapeHtml(rankedTestResult.message)}</div>`;
+      })();
+
+      return `
+        <div class="ranked-mode-card">
+          <div class="ranked-mode-header">
+            <div style="display:flex; align-items:center; gap:0.6rem;">
+              <span style="font-size:1rem;">🏆</span>
+              <span style="font-weight:700; font-size:0.95rem;">Ranked Title Mode</span>
+            </div>
+            <div class="toggle-wrapper" onclick="toggleRankedModeEnabled()">
+              <div class="toggle ${rm.enabled ? 'active' : ''}"></div>
+              <span>${rm.enabled ? 'Enabled' : 'Disabled'}</span>
+            </div>
+          </div>
+          ${rm.enabled ? `
+            <div>
+              <div class="trigger-row">
+                <div class="trigger-field" style="flex:0.5;">
+                  <label>Goal</label>
+                  <input type="number" value="${goal}" min="1"
+                    onchange="updateRankedField('goal', parseInt(this.value) || 3000)">
+                </div>
+                <div class="trigger-field" style="flex:0.5;">
+                  <label>Starting Count</label>
+                  <input type="number" value="${rm.startCount ?? 0}" min="0"
+                    onchange="updateRankedField('startCount', parseInt(this.value) || 0)">
+                </div>
+              </div>
+              <div style="margin-top:0.6rem; padding:0.5rem 0.75rem; background:var(--surface2); border-radius:6px; display:flex; align-items:center; justify-content:space-between; gap:0.75rem;">
+                <div>
+                  <div style="font-size:0.7rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:0.2rem;">Data Source</div>
+                  <code style="font-size:0.72rem; color:var(--accent); word-break:break-all;">…workers.dev/api/progress/637272cf…</code>
+                </div>
+                <button class="btn btn-ghost" style="font-size:0.78rem; padding:0.35rem 0.75rem; white-space:nowrap;" onclick="testRankedEndpoint()">Test</button>
+              </div>
+              ${testHtml}
+              <div class="ranked-preview" style="margin-top:0.6rem;">
+                <span style="font-size:0.8rem; color:var(--text-muted);">Title preview</span>
+                <div style="display:flex; align-items:center; gap:0.5rem;">
+                  <span class="ranked-counter-display">${currentCount}</span>
+                  <span style="color:var(--text-muted); font-weight:600;">/ ${goal}</span>
+                  <button class="btn btn-ghost" style="font-size:0.7rem; padding:0.2rem 0.45rem;" onclick="resetRankedCount()" title="Reset to starting count">↺</button>
+                  <button class="btn btn-ghost" style="font-size:0.7rem; padding:0.2rem 0.45rem;" onclick="adjustRankedCount(-1)">−</button>
+                  <button class="btn btn-ghost" style="font-size:0.7rem; padding:0.2rem 0.45rem;" onclick="adjustRankedCount(1)">+</button>
+                </div>
+                <span class="ranked-preview-title">${escapeHtml(titlePreview)}</span>
+                <button class="btn btn-primary" style="font-size:0.78rem; padding:0.35rem 0.8rem;" onclick="pushRankedTitle()">Update Now</button>
+              </div>
+            </div>
+          ` : `<div style="font-size:0.82rem; color:var(--text-muted);">Enable to automatically update your stream title when new ranked games are detected.</div>`}
+        </div>
+      `;
     }
 
     // Override save to also refresh status
