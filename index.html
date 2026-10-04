@@ -4,13 +4,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#0e0e10">
-  <title>Twitch Chat Auto-Chatter</title>
+  <meta name="theme-color" content="#f6f5f2">
+  <title>AutoChatbot</title>
   <meta name="description"
     content="Monitor Twitch channels for trigger phrases and automatically send configured responses.">
+  <script>
+    // Apply the saved (or system) theme before first paint to avoid a flash
+    (function () {
+      let theme = null;
+      try { theme = localStorage.getItem('ar_theme'); } catch (e) { }
+      if (theme !== 'light' && theme !== 'dark') {
+        theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      document.documentElement.dataset.theme = theme;
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap"
+  <link
+    href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
     rel="stylesheet">
   <script defer src="https://u.vinz3210.gg/script.js" data-website-id="261237d3-02fa-4107-8064-5f3972a4c28f"
     data-domains="autochatbot.vinz3210.gg"></script>
@@ -24,42 +36,103 @@
     }
 
     :root {
-      --bg: #0e0e10;
-      --surface: #18181b;
-      --surface2: #1f1f23;
-      --surface3: #26262c;
-      --border: #2f2f35;
-      --border-hover: #3f3f45;
-      --accent: #9147ff;
-      --accent-hover: #772ce8;
-      --accent-soft: rgba(145, 71, 255, 0.15);
-      --accent-glow: rgba(145, 71, 255, 0.3);
-      --text: #efeff1;
-      --text-dim: #adadb8;
-      --text-muted: #76768a;
-      --success: #00e676;
-      --success-soft: rgba(0, 230, 118, 0.12);
-      --warning: #ffab00;
-      --warning-soft: rgba(255, 171, 0, 0.12);
-      --danger: #ff5252;
-      --danger-soft: rgba(255, 82, 82, 0.12);
-      --radius: 8px;
-      --radius-lg: 12px;
-      --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-      --transition: 0.2s ease;
+      --bg: #f6f5f2;
+      --surface: #ffffff;
+      --panel: #fbfaf8;
+      --field: #f6f5f2;
+      --chip: #efede8;
+      --well: #f6f5f2;
+      --border: #e7e5df;
+      --border2: #dcd9d2;
+      --text: #1b1a17;
+      --dim: #5f5c55;
+      --muted: #8a867d;
+      --accent: #d94b22;
+      --onAccent: #ffffff;
+      --accentSoft: #fbede6;
+      --accentInk: #a63a17;
+      --rowSel: #fdf2ec;
+      --rowSelBd: #f0bba6;
+      --off: #d6d3cb;
+      --knob: #ffffff;
+      --segOn: #ffffff;
+      --ok: #2f9a5a;
+      --okSoft: #e6f2ea;
+      --okInk: #256b40;
+      --danger: #b8452a;
+      --dangerSoft: #f9ebe6;
+      --dangerBd: #efcfc4;
+      --user: #6d4fe0;
+      --shadow: 0 12px 32px rgba(27, 26, 23, 0.12);
+      --mono: 'IBM Plex Mono', ui-monospace, 'Consolas', monospace;
+      color-scheme: light;
+    }
+
+    :root[data-theme="dark"] {
+      --bg: #141312;
+      --surface: #191817;
+      --panel: #1c1b19;
+      --field: #22211f;
+      --chip: #2a2826;
+      --well: #100f0e;
+      --border: #2c2a27;
+      --border2: #3a3733;
+      --text: #eeece8;
+      --dim: #aaa69e;
+      --muted: #7d7972;
+      --accent: #ee6a3e;
+      --onAccent: #1a0e09;
+      --accentSoft: #2e1f18;
+      --accentInk: #ffaa88;
+      --rowSel: #2a1e18;
+      --rowSelBd: #5e3524;
+      --off: #3d3a36;
+      --knob: #141312;
+      --segOn: #33302c;
+      --ok: #4cc38a;
+      --okSoft: #1a2a21;
+      --okInk: #9fe0bd;
+      --danger: #ff8f75;
+      --dangerSoft: #2b1a15;
+      --dangerBd: #4a2b22;
+      --user: #b9a4ff;
+      --shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+      color-scheme: dark;
     }
 
     body {
-      font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+      font-size: 14px;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
-      overflow-x: hidden;
+    }
+
+    button,
+    input,
+    textarea {
+      font: inherit;
+      color: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    button:focus-visible,
+    [tabindex]:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    code {
+      font-family: var(--mono);
     }
 
     /* ── Scrollbar ── */
     ::-webkit-scrollbar {
-      width: 6px;
+      width: 8px;
+      height: 8px;
     }
 
     ::-webkit-scrollbar-track {
@@ -67,1106 +140,1379 @@
     }
 
     ::-webkit-scrollbar-thumb {
-      background: var(--border);
-      border-radius: 3px;
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-      background: var(--text-dim);
-    }
-
-    /* ── Animations ── */
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-        transform: translateY(8px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    @keyframes slideInLeft {
-      from {
-        opacity: 0;
-        transform: translateX(-12px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateX(0);
-      }
-    }
-
-    @keyframes slideInRight {
-      from {
-        opacity: 0;
-        transform: translateX(12px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateX(0);
-      }
+      background: var(--border2);
+      border-radius: 4px;
     }
 
     @keyframes pulse {
-
-      0%,
-      100% {
-        opacity: 1;
-      }
-
       50% {
-        opacity: 0.5;
+        opacity: 0.35;
       }
     }
 
-    @keyframes glow {
-
-      0%,
-      100% {
-        box-shadow: 0 0 8px var(--accent-glow);
-      }
-
-      50% {
-        box-shadow: 0 0 20px var(--accent-glow);
-      }
-    }
-
-    /* ── Login Screen ── */
-    .login-screen {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      padding: 2rem;
-    }
-
-    .login-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 3rem;
-      width: 100%;
-      max-width: 420px;
-      text-align: center;
-      animation: fadeIn 0.5s ease;
-      box-shadow: var(--shadow);
-    }
-
-    .login-card .logo {
-      font-size: 2.2rem;
-      font-weight: 900;
-      background: linear-gradient(135deg, var(--accent), #bf7aff);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      margin-bottom: 0.5rem;
-      letter-spacing: -0.5px;
-      overflow: visible;
-    }
-
-    .login-card .subtitle {
-      color: var(--text-dim);
-      font-size: 0.95rem;
-      margin-bottom: 2.5rem;
-      line-height: 1.5;
-    }
-
+    /* ── Controls ── */
     .btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 0.5rem;
-      padding: 0.7rem 1.25rem;
-      border: none;
-      border-radius: var(--radius);
-      font-family: inherit;
-      font-size: 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all var(--transition);
-      text-decoration: none;
+      gap: 6px;
+      background: none;
+      border: 1px solid var(--border2);
+      color: var(--dim);
+      padding: 6px 11px;
+      border-radius: 6px;
+      font-size: 13px;
+      white-space: nowrap;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+
+    .btn:hover {
+      color: var(--text);
+      background: var(--chip);
     }
 
     .btn-primary {
       background: var(--accent);
-      color: white;
+      border-color: var(--accent);
+      color: var(--onAccent);
+      font-weight: 600;
     }
 
     .btn-primary:hover {
-      background: var(--accent-hover);
-    }
-
-    .btn-primary:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .btn-twitch {
       background: var(--accent);
-      color: white;
-      width: 100%;
-      padding: 0.9rem 1.25rem;
-      font-size: 1rem;
-      font-weight: 700;
-      border-radius: var(--radius);
-      letter-spacing: 0.3px;
-    }
-
-    .btn-twitch:hover {
-      background: var(--accent-hover);
-      transform: translateY(-1px);
-      box-shadow: 0 4px 16px var(--accent-glow);
-    }
-
-    .btn-ghost {
-      background: transparent;
-      color: var(--text-dim);
-      border: 1px solid var(--border);
-      padding: 0.5rem 0.9rem;
-      font-size: 0.82rem;
-    }
-
-    .btn-ghost:hover {
-      color: var(--text);
-      border-color: var(--border-hover);
-      background: var(--surface2);
+      color: var(--onAccent);
+      filter: brightness(1.08);
     }
 
     .btn-danger {
-      background: var(--danger-soft);
+      border-color: var(--dangerBd);
       color: var(--danger);
-      border: 1px solid rgba(255, 82, 82, 0.25);
     }
 
     .btn-danger:hover {
-      background: rgba(255, 82, 82, 0.25);
+      background: var(--dangerSoft);
+      color: var(--danger);
     }
 
-    .btn-success {
-      background: var(--success-soft);
-      color: var(--success);
-      border: 1px solid rgba(0, 230, 118, 0.25);
+    .btn-dashed {
+      border-style: dashed;
     }
 
-    .btn-success:hover {
-      background: rgba(0, 230, 118, 0.25);
+    .btn-plain {
+      border-color: transparent;
+      color: var(--muted);
     }
 
-    .btn-warning {
-      background: var(--warning-soft);
-      color: var(--warning);
-      border: 1px solid rgba(255, 171, 0, 0.25);
-    }
-
-    .btn-warning:hover {
-      background: rgba(255, 171, 0, 0.25);
-    }
-
-    .trigger-card.disabled {
-      opacity: 0.5;
-      filter: grayscale(0.5);
-    }
-
-    .channel-item.paused .channel-name {
-      opacity: 0.5;
-      text-decoration: line-through;
-    }
-
-    .paused-badge {
-      font-size: 0.65rem;
-      color: var(--warning);
-      background: var(--warning-soft);
-      padding: 0.1rem 0.35rem;
-      border-radius: 4px;
-      margin-left: 0.4rem;
-      font-weight: 800;
-    }
-
-    /* ── Reuse Triggers ── */
-    .reuse-container {
-      position: relative;
-    }
-
-    .reuse-dropdown {
-      position: absolute;
-      top: 100%;
-      right: 0;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      min-width: 220px;
-      z-index: 1000;
-      display: none;
-      box-shadow: var(--shadow);
-      padding: 0.5rem 0;
-      margin-top: 0.5rem;
-      animation: fadeIn 0.2s ease;
-    }
-
-    .reuse-dropdown.active {
-      display: block;
-    }
-
-    .reuse-channel-item {
-      padding: 0.7rem 1.25rem;
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      position: relative;
-      font-size: 0.88rem;
-      font-weight: 500;
-      color: var(--text-dim);
-      transition: all var(--transition);
-    }
-
-    .reuse-channel-item:hover {
-      background: var(--surface2);
+    .btn-plain:hover {
+      background: none;
       color: var(--text);
     }
 
-    .reuse-channel-item .chevron {
-      font-size: 0.7rem;
-      opacity: 0.5;
-    }
-
-    .reuse-trigger-list {
-      position: absolute;
-      right: 100%;
-      top: -1px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      width: 280px;
-      display: none;
-      box-shadow: var(--shadow);
-      padding: 0.5rem 0;
-      margin-right: 0.5rem;
-      max-height: 400px;
-      overflow-y: auto;
-      z-index: 1001;
-    }
-
-    .reuse-channel-item:hover .reuse-trigger-list {
-      display: block;
-    }
-
-    .reuse-trigger-item {
-      padding: 0.75rem 1rem;
-      cursor: pointer;
-      border-bottom: 1px solid var(--border);
-      text-align: left;
-      transition: all var(--transition);
-    }
-
-    .reuse-trigger-item:last-child {
-      border-bottom: none;
-    }
-
-    .reuse-trigger-item:hover {
-      background: var(--surface2);
-    }
-
-    .reuse-trigger-phrase {
-      font-weight: 700;
-      font-size: 0.85rem;
-      display: block;
-      margin-bottom: 0.2rem;
-      color: var(--accent);
-    }
-
-    .reuse-trigger-response {
-      font-size: 0.75rem;
-      color: var(--text-dim);
-      display: block;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .reuse-trigger-more {
-      font-size: 0.72rem;
-      color: var(--text-muted);
-      font-weight: 600;
-      margin-left: 0.35rem;
-      background: var(--surface3);
-      padding: 0.1rem 0.3rem;
-      border-radius: 4px;
-    }
-
-    .btn-icon {
+    .btn-square {
       width: 32px;
       height: 32px;
       padding: 0;
+      flex-shrink: 0;
+    }
+
+    .btn-small {
+      padding: 3px 8px;
+      font-size: 12px;
+      border-radius: 4px;
+    }
+
+    .input {
+      min-width: 0;
+      background: var(--field);
+      border: 1px solid var(--border2);
       border-radius: 6px;
-      font-size: 1rem;
+      padding: 8px 10px;
+      font-size: 14px;
+      color: var(--text);
+      transition: border-color 0.15s;
     }
 
-    /* ── Dashboard ── */
-    .dashboard {
-      display: none;
-      height: 100vh;
-      flex-direction: column;
+    .input:focus {
+      outline: none;
+      border-color: var(--accent);
     }
 
-    .dashboard.active {
+    .input::placeholder {
+      color: var(--muted);
+    }
+
+    .input.mono {
+      font-family: var(--mono);
+    }
+
+    .switch-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--dim);
+      background: none;
+      border: none;
+      user-select: none;
+      text-align: left;
+    }
+
+    .switch {
+      width: 32px;
+      height: 18px;
+      border-radius: 9px;
+      background: var(--off);
+      position: relative;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+
+    .switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--knob);
+      transition: left 0.15s;
+    }
+
+    .switch.on {
+      background: var(--accent);
+    }
+
+    .switch.on::after {
+      left: 16px;
+    }
+
+    .section-label {
+      font: 500 12px var(--mono);
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .token {
+      font-family: var(--mono);
+      color: var(--accentInk);
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .brand {
       display: flex;
+      align-items: center;
+      gap: 10px;
+      font: 600 15px var(--mono);
+      color: var(--text);
+    }
+
+    .brand-mark {
+      width: 10px;
+      height: 10px;
+      background: var(--accent);
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    /* ── Login Screen ── */
+    .login-screen {
+      display: none;
+      min-height: 100vh;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px;
     }
 
     .login-screen.active {
       display: flex;
     }
 
-    .login-screen {
-      display: none;
+    .login-card {
+      width: 100%;
+      max-width: 420px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 36px;
+      box-shadow: var(--shadow);
     }
 
-    /* Header */
-    .dash-header {
+    .login-card .brand {
+      font-size: 20px;
+    }
+
+    .login-card .brand-mark {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+    }
+
+    .login-sub {
+      color: var(--dim);
+      font-size: 15px;
+      line-height: 1.5;
+      margin: 10px 0 24px;
+    }
+
+    .login-features {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+
+    .login-features li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      color: var(--dim);
+    }
+
+    .login-features li::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 1px;
+      background: var(--accent);
+      flex-shrink: 0;
+    }
+
+    .btn-login {
+      width: 100%;
+      padding: 12px;
+      font-size: 15px;
+      gap: 10px;
+    }
+
+    /* ── App Shell ── */
+    .app {
+      display: none;
+      height: 100vh;
+      grid-template-columns: 232px minmax(0, 1fr);
+      grid-template-rows: 52px minmax(0, 1fr) auto;
+    }
+
+    .app.active {
+      display: grid;
+    }
+
+    .app-header {
+      grid-column: 1 / -1;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0.65rem 1.25rem;
-      background: var(--surface);
+      gap: 16px;
+      padding: 0 18px;
       border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-      z-index: 10;
-    }
-
-    .dash-header .brand {
-      font-size: 1.15rem;
-      font-weight: 800;
-      background: linear-gradient(135deg, var(--accent), #bf7aff);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      background: var(--panel);
+      min-width: 0;
     }
 
     .header-right {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
+      gap: 14px;
+      font-size: 13px;
+      min-width: 0;
     }
 
-    .connection-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: var(--text-muted);
-      transition: background var(--transition);
-    }
-
-    .connection-dot.connected {
-      background: var(--success);
-      animation: pulse 2s ease-in-out infinite;
-    }
-
-    .connection-dot.connecting {
-      background: var(--warning);
-      animation: pulse 1s ease-in-out infinite;
-    }
-
-    .user-badge {
+    .status-pill {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      padding: 0.35rem 0.75rem;
-      background: var(--surface2);
+      gap: 8px;
+      min-width: 0;
+      padding: 6px 12px;
       border-radius: 20px;
-      font-size: 0.82rem;
-      font-weight: 600;
-      color: var(--text-dim);
+      font-weight: 500;
+      background: var(--chip);
+      color: var(--dim);
     }
 
-    /* Body layout */
-    .dash-body {
-      display: flex;
-      flex: 1;
-      overflow: hidden;
-    }
-
-    /* Sidebar */
-    .sidebar {
-      width: 280px;
-      background: var(--surface);
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
+    .status-pill .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--muted);
       flex-shrink: 0;
     }
 
-    .sidebar-header {
-      padding: 1rem 1rem 0.75rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+    .status-pill .status-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
-    .sidebar-header h2 {
-      font-size: 0.8rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      color: var(--text-dim);
+    .status-pill.connected {
+      background: var(--okSoft);
+      color: var(--okInk);
+    }
+
+    .status-pill.connected .dot {
+      background: var(--ok);
+    }
+
+    .status-pill.connecting {
+      background: var(--accentSoft);
+      color: var(--accentInk);
+    }
+
+    .status-pill.connecting .dot {
+      background: var(--accent);
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    .status-pill.disconnected {
+      background: var(--dangerSoft);
+      color: var(--danger);
+    }
+
+    .status-pill.disconnected .dot {
+      background: var(--danger);
+    }
+
+    .header-user {
+      color: var(--dim);
+      white-space: nowrap;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      border-right: 1px solid var(--border);
+      background: var(--panel);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .sidebar>.section-label {
+      padding: 16px 16px 10px;
     }
 
     .channel-list {
       flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: 0 8px;
       overflow-y: auto;
-      padding: 0 0.5rem;
     }
 
     .channel-item {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 0.6rem 0.75rem;
-      border-radius: var(--radius);
-      cursor: pointer;
-      transition: all var(--transition);
-      margin-bottom: 2px;
-      animation: slideInLeft 0.3s ease;
+      gap: 10px;
+      width: 100%;
+      padding: 9px 10px;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--dim);
+      text-align: left;
     }
 
     .channel-item:hover {
-      background: var(--surface2);
+      background: var(--chip);
     }
 
     .channel-item.active {
-      background: var(--accent-soft);
-      border: 1px solid rgba(145, 71, 255, 0.25);
-    }
-
-    .channel-item.active .channel-name {
+      background: var(--rowSel);
       color: var(--text);
     }
 
-    .channel-info {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      min-width: 0;
+    .channel-item.paused {
+      color: var(--muted);
     }
 
-    .channel-icon {
-      width: 28px;
-      height: 28px;
+    .channel-dot {
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
-      background: var(--surface3);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.75rem;
-      font-weight: 700;
-      color: var(--accent);
+      background: var(--ok);
       flex-shrink: 0;
-      text-transform: uppercase;
+    }
+
+    .channel-item.paused .channel-dot {
+      background: var(--off);
     }
 
     .channel-name {
-      font-size: 0.9rem;
-      font-weight: 600;
-      color: var(--text-dim);
-      white-space: nowrap;
+      flex: 1;
+      min-width: 0;
+      font-size: 14px;
+      font-weight: 500;
       overflow: hidden;
       text-overflow: ellipsis;
-    }
-
-    .channel-trigger-count {
-      font-size: 0.72rem;
-      color: var(--text-muted);
-      background: var(--surface3);
-      padding: 0.15rem 0.5rem;
-      border-radius: 10px;
-      flex-shrink: 0;
-    }
-
-    .channel-remove {
-      opacity: 0;
-      transition: opacity var(--transition);
-    }
-
-    .channel-item:hover .channel-remove {
-      opacity: 1;
-    }
-
-    /* Add channel */
-    .add-channel-area {
-      padding: 0.75rem;
-      border-top: 1px solid var(--border);
-    }
-
-    .add-channel-row {
-      display: flex;
-      gap: 0.5rem;
-    }
-
-    .add-channel-row input {
-      flex: 1;
-      padding: 0.5rem 0.75rem;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      color: var(--text);
-      font-family: inherit;
-      font-size: 0.85rem;
-      transition: border-color var(--transition);
-    }
-
-    .add-channel-row input:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-
-    .add-channel-row input::placeholder {
-      color: var(--text-muted);
-    }
-
-    /* Main content */
-    .main-content {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      min-width: 0;
-    }
-
-    /* Trigger editor */
-    .trigger-area {
-      flex: 1;
-      overflow-y: auto;
-      padding: 1.5rem;
-    }
-
-    .no-channel-selected {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-      color: var(--text-muted);
-      font-size: 1rem;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    .no-channel-selected .icon {
-      font-size: 2.5rem;
-      opacity: 0.4;
-    }
-
-    .triggers-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 1.25rem;
-    }
-
-    .triggers-header h2 {
-      font-size: 1.15rem;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .triggers-header h2 .hash {
-      color: var(--accent);
-      font-weight: 800;
-    }
-
-    .trigger-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 1.25rem;
-      margin-bottom: 0.75rem;
-      transition: all var(--transition);
-      animation: fadeIn 0.3s ease;
-    }
-
-    .trigger-card:hover {
-      border-color: var(--border-hover);
-    }
-
-    .trigger-row {
-      display: flex;
-      gap: 0.75rem;
-      align-items: flex-start;
-    }
-
-    .trigger-field {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .trigger-field label {
-      display: block;
-      font-size: 0.72rem;
-      font-weight: 700;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 0.35rem;
-    }
-
-    .trigger-field input,
-    .trigger-field textarea {
-      width: 100%;
-      padding: 0.55rem 0.75rem;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      font-family: inherit;
-      font-size: 0.88rem;
-      transition: border-color var(--transition);
-      resize: none;
-    }
-
-    .trigger-field input:focus,
-    .trigger-field textarea:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-
-    .trigger-field input::placeholder,
-    .trigger-field textarea::placeholder {
-      color: var(--text-muted);
-    }
-
-    .trigger-bottom {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-top: 0.75rem;
-      padding-top: 0.75rem;
-      border-top: 1px solid var(--border);
-    }
-
-    .counter-section {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
-
-    .toggle-wrapper {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      cursor: pointer;
-      font-size: 0.82rem;
-      color: var(--text-dim);
-      user-select: none;
-    }
-
-    .toggle {
-      width: 36px;
-      height: 20px;
-      background: var(--surface3);
-      border-radius: 10px;
-      position: relative;
-      transition: background var(--transition);
-      border: 1px solid var(--border);
-      cursor: pointer;
-    }
-
-    .toggle.active {
-      background: var(--accent);
-      border-color: var(--accent);
-    }
-
-    .toggle::after {
-      content: '';
-      position: absolute;
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      background: white;
-      top: 2px;
-      left: 2px;
-      transition: transform var(--transition);
-    }
-
-    .toggle.active::after {
-      transform: translateX(16px);
-    }
-
-    .counter-start {
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-    }
-
-    .counter-start label {
-      font-size: 0.75rem;
-      color: var(--text-muted);
       white-space: nowrap;
     }
 
-    .counter-start input {
-      width: 65px;
-      padding: 0.3rem 0.5rem;
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      font-family: inherit;
-      font-size: 0.82rem;
-      text-align: center;
+    .channel-meta {
+      font: 12px var(--mono);
+      color: var(--muted);
     }
 
-    .counter-start input:focus {
-      outline: none;
-      border-color: var(--accent);
+    .channel-empty {
+      padding: 12px 10px;
+      font-size: 13px;
+      color: var(--muted);
     }
 
-    .counter-current {
-      font-size: 0.78rem;
-      color: var(--accent);
-      font-weight: 600;
-      padding: 0.2rem 0.5rem;
-      background: var(--accent-soft);
-      border-radius: 6px;
+    .add-channel {
+      display: flex;
+      gap: 6px;
+      padding: 12px;
+      border-top: 1px solid var(--border);
     }
 
-    /* Activity log */
-    .activity-panel {
-      width: 320px;
-      background: var(--surface);
-      border-left: 1px solid var(--border);
+    .add-channel .input {
+      flex: 1;
+      font-size: 13px;
+    }
+
+    .add-channel .btn-primary {
+      width: 34px;
+      padding: 0;
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    /* ── Main ── */
+    .main {
       display: flex;
       flex-direction: column;
-      flex-shrink: 0;
+      min-height: 0;
+      min-width: 0;
+      background: var(--bg);
     }
 
-    .activity-header {
-      padding: 0.85rem 1rem;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .activity-header h3 {
-      font-size: 0.8rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
-      color: var(--text-dim);
-    }
-
-    .activity-log {
+    .main-empty {
       flex: 1;
-      overflow-y: auto;
-      padding: 0.5rem;
-    }
-
-    .activity-empty {
-      padding: 2rem 1rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 24px;
+      color: var(--muted);
       text-align: center;
-      color: var(--text-muted);
-      font-size: 0.85rem;
       line-height: 1.5;
     }
 
-    .log-entry {
-      padding: 0.5rem 0.65rem;
-      border-radius: 6px;
-      margin-bottom: 4px;
-      font-size: 0.82rem;
-      animation: slideInRight 0.25s ease;
-      line-height: 1.4;
-    }
-
-    .log-entry.match {
-      background: var(--accent-soft);
-      border-left: 3px solid var(--accent);
-    }
-
-    .log-entry.sent {
-      background: var(--success-soft);
-      border-left: 3px solid var(--success);
-    }
-
-    .log-entry.error {
-      background: var(--danger-soft);
-      border-left: 3px solid var(--danger);
-    }
-
-    .log-entry.info {
-      background: var(--warning-soft);
-      border-left: 3px solid var(--warning);
-    }
-
-    .log-entry.chat {
-      background: rgba(255, 255, 255, 0.03);
-      border-left: 3px solid var(--border);
-      color: var(--text-dim);
-      font-size: 0.78rem;
-    }
-
-    .log-time {
-      font-size: 0.7rem;
-      color: var(--text-muted);
-      margin-right: 0.4rem;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .log-channel {
-      color: var(--accent);
-      font-weight: 600;
-    }
-
-    .log-user {
-      color: var(--warning);
-      font-weight: 600;
-    }
-
-    .log-phrase {
+    .main-empty strong {
       color: var(--text);
+      font-size: 15px;
       font-weight: 600;
-      background: rgba(255, 255, 255, 0.06);
-      padding: 0.05rem 0.35rem;
-      border-radius: 3px;
     }
 
-    /* Monitoring status bar */
-    .monitor-bar {
-      padding: 0.5rem 1rem;
-      background: var(--surface2);
-      border-top: 1px solid var(--border);
-      font-size: 0.78rem;
-      color: var(--text-muted);
+    .channel-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 24px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .channel-header-left {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .channel-title {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      flex-shrink: 0;
+      gap: 12px;
+      min-width: 0;
     }
 
-    .monitor-bar .status-text {
+    .channel-title h1 {
+      font: 600 20px var(--mono);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .channel-title .hash {
+      color: var(--muted);
+    }
+
+    .badge {
+      font-size: 12px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .badge-ok {
+      color: var(--okInk);
+      background: var(--okSoft);
+    }
+
+    .badge-muted {
+      color: var(--muted);
+      background: var(--chip);
+    }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+    }
+
+    .tab {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 14px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--dim);
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      white-space: nowrap;
+    }
+
+    .tab:hover {
+      color: var(--text);
+    }
+
+    .tab.active {
+      color: var(--text);
+      border-bottom-color: var(--accent);
+    }
+
+    .tab-meta {
+      font: 12px var(--mono);
+      color: var(--muted);
+    }
+
+    .channel-actions {
+      display: flex;
+      gap: 8px;
+      padding-bottom: 12px;
+    }
+
+    .tab-content {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Triggers Tab ── */
+    .triggers-layout {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 380px minmax(0, 1fr);
+    }
+
+    .trigger-list-col {
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      border-right: 1px solid var(--border);
+    }
+
+    .trigger-list-actions {
+      position: relative;
+      display: flex;
+      gap: 8px;
+      padding: 14px 16px;
+    }
+
+    .trigger-list-actions .btn {
+      padding: 9px 12px;
+    }
+
+    .trigger-list-actions .btn-primary {
       flex: 1;
     }
 
-    /* Multi-response styles */
-    .responses-container {
+    .trigger-list {
+      flex: 1;
+      overflow: auto;
       display: flex;
       flex-direction: column;
-      gap: 0.5rem;
-      margin-top: 0.35rem;
-      animation: fadeIn 0.2s ease;
+      gap: 4px;
+      padding: 0 10px 12px;
+    }
+
+    .list-empty {
+      padding: 12px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .trigger-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 11px 12px;
+      border-radius: 7px;
+      border: 1px solid transparent;
+      cursor: pointer;
+    }
+
+    .trigger-item:hover {
+      background: var(--chip);
+    }
+
+    .trigger-item.selected {
+      background: var(--rowSel);
+      border-color: var(--rowSelBd);
+    }
+
+    .trigger-item.disabled {
+      opacity: 0.5;
+    }
+
+    .trigger-item-body {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .trigger-item-phrase {
+      font: 600 14px var(--mono);
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .trigger-item-reply {
+      font-size: 13px;
+      color: var(--dim);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .trigger-item .switch-label {
+      margin-top: 2px;
+    }
+
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+
+    .badge-chip {
+      font: 12px var(--mono);
+      color: var(--dim);
+      background: var(--chip);
+      padding: 1px 6px;
+      border-radius: 3px;
+    }
+
+    .trigger-item:hover .badge-chip {
+      background: var(--bg);
+    }
+
+    /* Copy-from menu */
+    .copy-menu {
+      display: none;
+      position: absolute;
+      top: calc(100% - 8px);
+      left: 16px;
+      right: 16px;
+      z-index: 20;
+      max-height: 360px;
+      overflow-y: auto;
+      padding: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .copy-menu.open {
+      display: block;
+    }
+
+    .copy-menu-group {
+      padding: 8px 8px 4px;
+      font: 500 12px var(--mono);
+      color: var(--muted);
+    }
+
+    .copy-menu-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      width: 100%;
+      padding: 7px 8px;
+      border: none;
+      border-radius: 5px;
+      background: none;
+      text-align: left;
+    }
+
+    .copy-menu-item:hover {
+      background: var(--chip);
+    }
+
+    .copy-menu-item b {
+      font: 600 13px var(--mono);
+      color: var(--text);
+    }
+
+    .copy-menu-item span {
+      font-size: 12px;
+      color: var(--dim);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .copy-menu-empty {
+      padding: 6px 8px 10px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    /* Editor */
+    .editor {
+      overflow: auto;
+      padding: 22px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      background: var(--surface);
+    }
+
+    .editor-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .editor-head-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .field-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+    }
+
+    .field-title {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .field-hint {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .phrase-row {
+      display: flex;
+      gap: 10px;
+    }
+
+    .phrase-input {
+      flex: 1;
+      padding: 10px 12px;
+      font-size: 15px;
+      font-weight: 500;
+    }
+
+    .segmented {
+      display: flex;
+      padding: 3px;
+      background: var(--field);
+      border: 1px solid var(--border2);
+      border-radius: 6px;
+    }
+
+    .segmented button {
+      padding: 7px 11px;
+      font-size: 13px;
+      border: none;
+      border-radius: 4px;
+      background: transparent;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .segmented button.on {
+      background: var(--segOn);
+      color: var(--text);
     }
 
     .response-row {
       display: flex;
-      gap: 0.5rem;
       align-items: center;
+      gap: 8px;
     }
 
-    .response-text-input {
+    .response-input {
       flex: 1;
+      padding: 10px 12px;
     }
 
-    .response-weight-input {
-      width: 70px !important;
+    .weight-input {
+      width: 56px;
+      padding: 8px 4px;
       text-align: center;
+      font: 13px var(--mono);
+    }
+
+    .response-pct {
+      width: 44px;
+      text-align: right;
+      font: 600 13px var(--mono);
+      color: var(--accentInk);
+    }
+
+    .btn-remove {
+      width: 24px;
+      padding: 0 4px;
+      font-size: 16px;
+    }
+
+    .insert-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .divider-v {
+      width: 1px;
+      height: 18px;
+      margin: 0 4px;
+      background: var(--border2);
+    }
+
+    .insert-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 9px;
+      border: none;
+      border-radius: 4px;
+      background: var(--accentSoft);
+      color: var(--accentInk);
+      font-size: 12px;
+    }
+
+    .insert-chip b {
       font-weight: 600;
-      color: var(--accent) !important;
     }
 
-    .btn-add-response {
-      align-self: flex-start;
-      margin-top: 0.25rem;
-      padding: 0.3rem 0.6rem !important;
-      font-size: 0.72rem !important;
-      background: var(--surface3);
+    .insert-chip code {
+      opacity: 0.8;
     }
 
-    .btn-add-response:hover {
-      background: var(--border);
+    .insert-chip:hover {
+      filter: brightness(0.97);
     }
 
-    .weight-label {
-      font-size: 0.65rem;
-      color: var(--text-muted);
-      margin-right: -0.25rem;
-    }
-
-    /* Empty triggers */
-    .empty-triggers {
-      text-align: center;
-      padding: 3rem 1rem;
-      color: var(--text-muted);
-    }
-
-    .empty-triggers .icon {
-      font-size: 2rem;
-      margin-bottom: 0.75rem;
-      opacity: 0.4;
-    }
-
-    .empty-triggers p {
-      margin-bottom: 1rem;
-      font-size: 0.9rem;
-    }
-
-    /* ── Ranked Mode ── */
-    .ranked-mode-card {
-      background: var(--surface);
-      border: 1px solid rgba(145, 71, 255, 0.25);
-      border-radius: var(--radius-lg);
-      padding: 1.25rem;
-      margin-top: 1.5rem;
-      animation: fadeIn 0.3s ease;
-    }
-
-    .ranked-mode-header {
+    .preview-well {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 1rem;
-      padding-bottom: 0.75rem;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .ranked-counter-display {
-      font-size: 1.4rem;
-      font-weight: 800;
-      color: var(--accent);
-      font-variant-numeric: tabular-nums;
-    }
-
-    .ranked-preview {
-      margin-top: 0.85rem;
-      padding: 0.65rem 0.85rem;
-      background: var(--surface2);
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.75rem;
-    }
-
-    .ranked-preview-title {
-      font-weight: 700;
-      color: var(--text);
-      flex: 1;
-      text-align: center;
-    }
-
-    /* ── Variables ── */
-    .variable-row {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      margin-bottom: 0.45rem;
-    }
-
-    .variable-name {
-      min-width: 150px;
-      padding: 0.4rem 0.6rem;
-      background: var(--surface2);
-      border-radius: 6px;
-      font-family: 'Consolas', 'Monaco', monospace;
-      font-size: 0.8rem;
-      color: var(--accent);
-    }
-
-    .variable-row input {
-      flex: 1;
-      min-width: 0;
-      padding: 0.4rem 0.6rem;
-      background: var(--surface2);
+      flex-direction: column;
+      gap: 8px;
+      padding: 14px 16px;
+      background: var(--well);
       border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      font-family: inherit;
-      font-size: 0.85rem;
+      border-radius: 8px;
     }
 
-    .variable-row input:focus {
-      outline: none;
-      border-color: var(--accent);
+    .chat-line {
+      font-size: 14px;
+      line-height: 1.5;
+      overflow-wrap: anywhere;
     }
 
-    .variable-row input::placeholder {
-      color: var(--text-muted);
+    .chat-user {
+      color: var(--user);
+      font-weight: 600;
     }
 
-    /* ── Fetch Test ── */
+    .chat-bot {
+      color: var(--accentInk);
+      font-weight: 600;
+    }
+
+    .chat-dim {
+      color: var(--dim);
+    }
+
+    .preview-skip {
+      color: var(--danger);
+    }
+
+    .preview-note {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .advanced {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .advanced-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      width: 100%;
+      padding: 13px 16px;
+      border: none;
+      border-radius: 8px;
+      background: none;
+      text-align: left;
+    }
+
+    .advanced-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .advanced-title .chev {
+      width: 10px;
+      font: 13px var(--mono);
+      color: var(--muted);
+    }
+
+    .advanced-summary {
+      font-size: 13px;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    .advanced-body {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px 18px;
+      padding: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .form-label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--dim);
+    }
+
+    .span-2 {
+      grid-column: 1 / -1;
+    }
+
+    .fetch-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .fetch-row .input {
+      flex: 1;
+      font-size: 13px;
+    }
+
+    .toggles-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px 22px;
+      padding-top: 4px;
+    }
+
+    .counter-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--dim);
+    }
+
+    .counter-info .token {
+      font-weight: 600;
+    }
+
+    .counter-start {
+      width: 72px;
+      padding: 4px 8px;
+      font-size: 13px;
+    }
+
+    /* Fetch test */
     .fetch-test {
-      margin-top: 0.5rem;
-      padding: 0.5rem;
-      background: var(--surface2);
-      border-radius: 6px;
-      font-size: 0.78rem;
       max-height: 240px;
       overflow-y: auto;
+      padding: 6px;
+      background: var(--well);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 13px;
     }
 
     .fetch-test-status {
-      padding: 0.15rem 0.4rem 0.35rem;
-      word-break: break-all;
+      padding: 4px 6px 6px;
+      overflow-wrap: anywhere;
+    }
+
+    .fetch-test-status.ok {
+      color: var(--okInk);
+    }
+
+    .fetch-test-status.warn {
+      color: var(--accentInk);
+    }
+
+    .fetch-test-status.error {
+      color: var(--danger);
+    }
+
+    .fetch-test-status.pending,
+    .fetch-test-url {
+      color: var(--muted);
     }
 
     .fetch-field {
       display: flex;
-      gap: 0.75rem;
-      padding: 0.25rem 0.4rem;
+      gap: 12px;
+      width: 100%;
+      padding: 4px 6px;
+      border: none;
       border-radius: 4px;
-      cursor: pointer;
+      background: none;
+      text-align: left;
     }
 
     .fetch-field:hover {
-      background: var(--surface3);
+      background: var(--chip);
     }
 
     .fetch-field code {
-      color: var(--accent);
+      font-size: 12px;
+      color: var(--accentInk);
       white-space: nowrap;
-      font-family: 'Consolas', 'Monaco', monospace;
     }
 
     .fetch-field span {
-      color: var(--text-dim);
       min-width: 0;
+      color: var(--dim);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
-    /* Responsive */
-    @media (max-width: 900px) {
-      .activity-panel {
-        display: none;
-      }
+    /* ── Variables & Ranked Tabs ── */
+    .tab-page {
+      flex: 1;
+      overflow: auto;
+      padding: 24px;
     }
 
-    @media (max-width: 650px) {
-      .sidebar {
-        width: 220px;
-      }
+    .tab-page-inner {
+      max-width: 760px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .page-intro {
+      font-size: 14px;
+      color: var(--dim);
+      line-height: 1.5;
+    }
+
+    .var-table {
+      overflow: hidden;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .var-row {
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr) 104px;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .var-token {
+      font: 500 14px var(--mono);
+      color: var(--accentInk);
+      overflow-wrap: anywhere;
+    }
+
+    .var-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 4px;
+    }
+
+    .var-empty {
+      padding: 16px;
+      font-size: 14px;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .var-add {
+      display: flex;
+      gap: 8px;
+      padding: 12px 16px;
+      background: var(--panel);
+    }
+
+    .var-add .input {
+      flex: 1;
+    }
+
+    .var-add .input-start {
+      flex: 0 0 140px;
+    }
+
+    .var-add .btn-primary {
+      padding: 0 16px;
+    }
+
+    .ranked-page {
+      gap: 20px;
+    }
+
+    .ranked-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .ranked-head .page-intro {
+      max-width: 460px;
+    }
+
+    .card {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .ranked-title {
+      font: 600 26px var(--mono);
+      overflow-wrap: anywhere;
+    }
+
+    .progress {
+      height: 6px;
+      overflow: hidden;
+      background: var(--chip);
+      border-radius: 3px;
+    }
+
+    .progress>div {
+      height: 100%;
+      background: var(--accent);
+    }
+
+    .ranked-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ranked-controls .btn {
+      height: 34px;
+    }
+
+    .ranked-controls .btn-square {
+      width: 34px;
+    }
+
+    .ranked-controls .spacer {
+      flex: 1;
+    }
+
+    .test-result {
+      font-size: 13px;
+    }
+
+    .test-result.ok {
+      color: var(--okInk);
+    }
+
+    .test-result.error {
+      color: var(--danger);
+    }
+
+    .test-result.pending {
+      color: var(--muted);
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    /* ── Activity ── */
+    .activity {
+      grid-column: 1 / -1;
+      min-width: 0;
+      border-top: 1px solid var(--border);
+      background: var(--panel);
+    }
+
+    .activity-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 18px;
+      font-size: 13px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .activity-last {
+      flex: 1;
+      min-width: 0;
+      color: var(--dim);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .activity-toggle {
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .activity-clear {
+      padding: 0 4px;
+    }
+
+    .activity:not(.open) .activity-clear {
+      display: none;
+    }
+
+    .activity-log {
+      display: none;
+      flex-direction: column;
+      gap: 2px;
+      height: 150px;
+      overflow: auto;
+      padding: 0 18px 12px;
+    }
+
+    .activity.open .activity-log {
+      display: flex;
+    }
+
+    .activity-empty {
+      padding: 3px 0;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .log-entry {
+      display: grid;
+      grid-template-columns: 72px 52px minmax(0, 1fr);
+      gap: 10px;
+      padding: 3px 0;
+      font-size: 13px;
+    }
+
+    .log-time,
+    .log-kind {
+      font-family: var(--mono);
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .log-entry.match .log-kind {
+      color: var(--user);
+    }
+
+    .log-entry.sent .log-kind {
+      color: var(--ok);
+    }
+
+    .log-entry.error .log-kind {
+      color: var(--danger);
+    }
+
+    .log-text {
+      color: var(--dim);
+      overflow-wrap: anywhere;
+    }
+
+    .log-entry.chat .log-text {
+      color: var(--muted);
+    }
+
+    .log-channel {
+      color: var(--accentInk);
+      font-weight: 500;
+    }
+
+    .log-user {
+      color: var(--user);
+      font-weight: 600;
+    }
+
+    .log-phrase {
+      font-family: var(--mono);
+      color: var(--text);
+    }
+
+    .log-text code,
+    .activity-last code {
+      color: var(--accentInk);
     }
 
     /* ── Help Modal ── */
     .modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.7);
-      backdrop-filter: blur(4px);
-      -webkit-backdrop-filter: blur(4px);
+      z-index: 100;
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 100;
+      padding: 24px 16px;
+      background: rgba(0, 0, 0, 0.45);
       opacity: 0;
       pointer-events: none;
-      transition: opacity 0.25s ease;
-      padding: 2rem;
+      transition: opacity 0.2s ease;
     }
 
     .modal-overlay.active {
@@ -1175,127 +1521,176 @@
     }
 
     .modal {
+      width: 100%;
+      max-width: 600px;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 28px 32px;
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 2rem;
-      max-width: 560px;
-      width: 100%;
-      max-height: 80vh;
-      overflow-y: auto;
-      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
-      transform: translateY(12px);
-      transition: transform 0.25s ease;
-    }
-
-    .modal-overlay.active .modal {
-      transform: translateY(0);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
     }
 
     .modal h2 {
-      font-size: 1.2rem;
-      font-weight: 800;
-      margin-bottom: 1rem;
-      color: var(--text);
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      margin-bottom: 8px;
     }
 
     .modal h3 {
-      font-size: 0.85rem;
-      font-weight: 700;
-      color: var(--accent);
+      font: 500 12px var(--mono);
+      color: var(--muted);
+      letter-spacing: 0.06em;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-top: 1.25rem;
-      margin-bottom: 0.4rem;
+      margin: 22px 0 8px;
     }
 
     .modal p,
     .modal li {
-      font-size: 0.88rem;
-      color: var(--text-dim);
+      font-size: 14px;
+      color: var(--dim);
       line-height: 1.6;
     }
 
+    .modal p+p {
+      margin-top: 8px;
+    }
+
     .modal ul {
-      padding-left: 1.25rem;
-      margin-bottom: 0.5rem;
+      padding-left: 20px;
+      margin-bottom: 6px;
     }
 
     .modal li {
-      margin-bottom: 0.3rem;
+      margin-bottom: 4px;
+    }
+
+    .modal strong {
+      color: var(--text);
+      font-weight: 600;
     }
 
     .modal code {
-      background: var(--surface2);
-      padding: 0.1rem 0.4rem;
-      border-radius: 4px;
-      font-size: 0.82rem;
-      color: var(--accent);
-      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 13px;
+      color: var(--accentInk);
+      background: var(--accentSoft);
+      padding: 1px 5px;
+      border-radius: 3px;
     }
 
     .modal-close {
       float: right;
-      background: none;
-      border: none;
-      color: var(--text-dim);
-      font-size: 1.3rem;
-      cursor: pointer;
-      padding: 0.2rem 0.5rem;
-      border-radius: 6px;
-      transition: all var(--transition);
+      margin: -8px -12px 0 0;
+      font-size: 20px;
     }
 
-    .modal-close:hover {
-      background: var(--surface2);
-      color: var(--text);
+    /* ── Responsive ── */
+    @media (max-width: 1100px) {
+      .triggers-layout {
+        grid-template-columns: 300px minmax(0, 1fr);
+      }
     }
 
-    .help-btn {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      border: 1px solid rgba(145, 71, 255, 0.4);
-      background: var(--accent-soft);
-      color: var(--accent);
-      font-size: 0.85rem;
-      font-weight: 700;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      transition: all var(--transition);
-      margin-left: 0.5rem;
-      vertical-align: middle;
+    @media (max-width: 860px) {
+      .triggers-layout {
+        display: block;
+        overflow-y: auto;
+      }
+
+      .trigger-list-col {
+        max-height: 45vh;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .editor {
+        overflow: visible;
+      }
+
+      .advanced-body,
+      .form-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .var-row {
+        grid-template-columns: minmax(0, 1fr) 104px;
+      }
+
+      .var-token {
+        grid-column: 1 / -1;
+      }
     }
 
-    .help-btn:hover {
-      border-color: var(--accent);
-      color: var(--accent);
-      background: var(--accent-soft);
-    }
+    @media (max-width: 700px) {
+      .app {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: 52px auto minmax(0, 1fr) auto;
+      }
 
-    .login-features {
-      text-align: left;
-      margin: 1.5rem 0;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
+      .app-header {
+        padding: 0 12px;
+        gap: 8px;
+      }
 
-    .login-feature {
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-      font-size: 0.82rem;
-      color: var(--text-dim);
-    }
+      .header-right {
+        gap: 6px;
+      }
 
-    .login-feature .feat-icon {
-      font-size: 1rem;
-      width: 24px;
-      text-align: center;
-      flex-shrink: 0;
+      .header-user,
+      .brand-name {
+        display: none;
+      }
+
+      .sidebar {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .sidebar>.section-label {
+        display: none;
+      }
+
+      .channel-list {
+        flex-direction: row;
+        overflow-x: auto;
+        padding: 8px;
+      }
+
+      .channel-item {
+        width: auto;
+        flex-shrink: 0;
+      }
+
+      .channel-header {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 14px 16px 0;
+      }
+
+      .channel-actions {
+        padding-bottom: 0;
+      }
+
+      .tabs {
+        overflow-x: auto;
+      }
+
+      .editor,
+      .tab-page {
+        padding: 18px 16px;
+      }
+
+      .phrase-row,
+      .ranked-head {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .modal {
+        padding: 22px 20px;
+      }
     }
   </style>
 </head>
@@ -1305,19 +1700,18 @@
   <!-- Login Screen -->
   <div class="login-screen active" id="login-screen">
     <div class="login-card">
-      <div class="logo">AutoChatbot</div>
-      <p class="subtitle">Auto-respond to Twitch chat commands</p>
-
-      <div class="login-features">
-        <div class="login-feature"><span class="feat-icon">📡</span> Monitor multiple channels at once</div>
-        <div class="login-feature"><span class="feat-icon">⚡</span> Set custom trigger phrases &amp; responses</div>
-        <div class="login-feature"><span class="feat-icon">🔢</span> Optional auto-incrementing counters</div>
-        <div class="login-feature"><span class="feat-icon">🔒</span> Restrict triggers to specific users</div>
-        <div class="login-feature"><span class="feat-icon">🧮</span> Variables &amp; live data from JSON APIs</div>
+      <div class="brand">
+        <div class="brand-mark"></div>autochatbot
       </div>
-
-      <button class="btn btn-twitch" id="twitch-login-btn" onclick="loginWithTwitch()">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+      <p class="login-sub">Auto-respond to Twitch chat commands.</p>
+      <ul class="login-features">
+        <li>Monitor multiple channels at once</li>
+        <li>Custom trigger phrases with random replies</li>
+        <li>Counters, variables and live data from JSON APIs</li>
+        <li>Restrict triggers to specific users</li>
+      </ul>
+      <button class="btn btn-primary btn-login" id="twitch-login-btn" onclick="loginWithTwitch()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path
             d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z" />
         </svg>
@@ -1328,36 +1722,38 @@
 
   <!-- Help Modal -->
   <div class="modal-overlay" id="help-modal" onclick="if(event.target===this)closeHelp()">
-    <div class="modal">
-      <button class="modal-close" onclick="closeHelp()">&times;</button>
-      <p>AutoChatbot monitors Twitch chat channels in real-time and automatically sends responses when specific trigger
-        phrases are detected.</p>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="help-title">
+      <button class="btn btn-plain modal-close" onclick="closeHelp()" aria-label="Close">&times;</button>
+      <h2 id="help-title">How it works</h2>
+      <p>AutoChatbot watches Twitch chat channels in real time and replies automatically when someone types one of
+        your trigger phrases.</p>
 
       <h3>Getting Started</h3>
       <ul>
         <li>Log in with your Twitch account to authorize chat reading &amp; sending</li>
-        <li>Add channels you want to monitor (e.g., your own channel)</li>
-        <li>Create triggers with a phrase and a response</li>
-        <li>Keep the page open &mdash; it runs as long as the tab is active</li>
+        <li>Add channels you want to monitor in the sidebar (e.g., your own channel)</li>
+        <li>Create triggers with <strong>+ New trigger</strong>: a phrase and a reply</li>
+        <li>Keep the page open &mdash; it runs as long as the tab is open</li>
       </ul>
 
       <h3>Trigger Phrases</h3>
-      <p>Set any text as a trigger (e.g., <code>!sun</code>). When someone types that exact phrase in chat, AutoChatbot
-        sends your configured response. Matching is case-insensitive.</p>
+      <p>Set any text as a trigger (e.g., <code>!sun</code>). <strong>At start</strong> matches messages that begin with
+        the phrase; <strong>Anywhere</strong> matches it anywhere in the message. Matching is case-insensitive.</p>
+      <p>Add <strong>random alternatives</strong> to pick one reply at random. The number next to each reply is its
+        weight: a reply with weight 2 is picked twice as often as one with weight 1.</p>
 
-      <h3>Allowed Users</h3>
-      <p>By default, anyone can activate a trigger. To restrict it, enter comma-separated usernames in the
-        <strong>Allowed Users</strong> field. Only those users will be able to trigger it &mdash; useful for preventing
-        spam.
-      </p>
+      <h3>Who Can Use It</h3>
+      <p>By default, anyone can activate a trigger. Under <strong>Advanced</strong>, enter comma-separated usernames in
+        <strong>Only these users</strong> to restrict it, or in <strong>Ignore these users</strong> to block accounts
+        like other bots.</p>
 
       <h3>Counter &amp; User Placeholders</h3>
-      <p>Use special placeholders in your response text:</p>
       <ul>
-        <li><code>{count}</code> &mdash; Replaced with the current counter value (if enabled).</li>
-        <li><code>{username}</code> &mdash; Replaced with the name of the user who triggered the command.</li>
+        <li><code>{username}</code> &mdash; The name of the user who triggered the command.</li>
+        <li><code>{count}</code> &mdash; A counter that goes up each time the trigger fires (turn on
+          <strong>Counter</strong> under Advanced).</li>
       </ul>
-      <p>Example: response <code>Hello {username}, you are visitor #{count}!</code></p>
+      <p>Example: reply <code>Hello {username}, you are visitor #{count}!</code></p>
 
       <h3>Command Arguments</h3>
       <ul>
@@ -1366,11 +1762,10 @@
       </ul>
       <p>Add a fallback after <code>|</code> for when the value is missing: <code>{1|1}</code> uses <code>1</code> if
         nobody typed a word after the command. Without a fallback, a missing value means the bot doesn't reply (the
-        Activity Log says why).</p>
+        Activity log says why).</p>
 
       <h3>Variables</h3>
-      <p>Create variables in the <strong>Variables</strong> panel below a channel's triggers, then use them in any
-        response:</p>
+      <p>Create variables in a channel's <strong>Variables</strong> tab, then use them in any reply:</p>
       <ul>
         <li><code>{var:streak}</code> &mdash; Current value.</li>
         <li><code>{var:streak+1}</code> / <code>{var:streak-1}</code> &mdash; Add / subtract, then show the new value.</li>
@@ -1382,118 +1777,75 @@
         <code>!currentstreak</code> &rarr; <code>Current streak: {var:streak}</code></p>
 
       <h3>Fetching Data</h3>
-      <p>Give a trigger a <strong>Fetch URL</strong> and the bot loads it every time the trigger fires. Placeholders work
-        in the URL too, e.g. <code>https://example.com/last?id={1|1}</code>.</p>
+      <p>Under <strong>Advanced</strong>, give a trigger a URL to fetch data from, and the bot loads it every time the
+        trigger fires. Placeholders work in the URL too, e.g. <code>https://example.com/last?id={1|1}</code>.</p>
       <ul>
         <li><code>{fetch:location.streetView}</code> &mdash; A field from a JSON response (use <code>items.0.name</code>
           for arrays).</li>
         <li><code>{fetch}</code> &mdash; The whole response, for plain-text APIs.</li>
         <li><code>{fetch:location.streetView|{fetch:error}}</code> &mdash; Fallbacks work here too.</li>
       </ul>
-      <p>Use the <strong>Test</strong> button to see every field you can use. The API must allow cross-origin requests
-        (CORS), since the bot runs in your browser.</p>
+      <p>Use the <strong>Test</strong> button to see every field you can use; the preview then shows real fetched
+        values. The API must allow cross-origin requests (CORS), since the bot runs in your browser.</p>
+
+      <h3>Ranked Title</h3>
+      <p>The <strong>Ranked title</strong> tab updates your stream title to <code>ränked. count/goal</code> each time a
+        new ranked game shows up.</p>
 
       <h3>Storage</h3>
-      <p>All channels, triggers, and counter values are saved in your browser's local storage. They persist across page
-        refreshes and browser restarts.</p>
+      <p>All channels, triggers, variables and counter values are saved in your browser's local storage. They persist
+        across page refreshes and browser restarts.</p>
     </div>
   </div>
 
   <!-- Dashboard -->
-  <div class="dashboard" id="dashboard">
+  <div class="app" id="dashboard">
 
-    <!-- Header -->
-    <div class="dash-header">
-      <div class="brand">AUTOCHATBOT <button class="help-btn" onclick="openHelp()" title="How it works">?</button></div>
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-mark"></div><span class="brand-name">autochatbot</span>
+      </div>
       <div class="header-right">
-        <div class="connection-dot" id="conn-dot" title="Disconnected"></div>
-        <div class="user-badge">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="opacity:0.6">
-            <path
-              d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12zm0 2.4c-3.3 0-9.8 1.6-9.8 4.9v2.4h19.6v-2.4c0-3.3-6.5-4.9-9.8-4.9z" />
-          </svg>
-          <span id="user-name">—</span>
+        <div class="status-pill" id="status-pill">
+          <span class="dot"></span><span class="status-text" id="status-text">Not connected</span>
         </div>
-        <button class="btn btn-ghost" onclick="logout()" title="Logout">Logout</button>
+        <div class="header-user" id="user-name">—</div>
+        <button class="btn" id="theme-btn" onclick="toggleTheme()">Dark mode</button>
+        <button class="btn" onclick="openHelp()">Help</button>
+        <button class="btn btn-plain" onclick="logout()">Log out</button>
       </div>
-    </div>
+    </header>
 
-    <!-- Body -->
-    <div class="dash-body">
-
-      <!-- Sidebar: Channels -->
-      <div class="sidebar">
-        <div class="sidebar-header">
-          <h2>Channels</h2>
-        </div>
-        <div class="channel-list" id="channel-list">
-          <!-- populated dynamically -->
-        </div>
-        <div class="add-channel-area">
-          <div class="add-channel-row">
-            <input type="text" id="add-channel-input" placeholder="Channel name…" autocomplete="off"
-              onkeydown="if(event.key==='Enter') addChannel()">
-            <button class="btn btn-primary btn-icon" onclick="addChannel()" title="Add channel">+</button>
-          </div>
-        </div>
+    <aside class="sidebar">
+      <div class="section-label">Channels</div>
+      <div class="channel-list" id="channel-list">
+        <!-- populated dynamically -->
       </div>
-
-      <!-- Main: Triggers -->
-      <div class="main-content">
-        <div class="trigger-area" id="trigger-area">
-          <div class="no-channel-selected" id="no-channel-msg">
-            <div class="icon">📡</div>
-            <div>Select or add a channel to configure triggers</div>
-          </div>
-          <div id="trigger-editor" style="display:none;">
-            <div class="triggers-header">
-              <h2><span class="hash">#</span> <span id="selected-channel-name"></span></h2>
-              <div style="display:flex; gap:0.5rem;">
-                <button id="channel-pause-btn" class="btn" onclick="togglePauseChannel()"
-                  style="font-size:0.82rem; padding:0.45rem 0.9rem;"></button>
-                <div class="reuse-container">
-                  <button class="btn btn-ghost" onclick="toggleReuseDropdown(event)"
-                    style="font-size:0.82rem; padding:0.45rem 0.9rem;">Reuse Trigger</button>
-                  <div class="reuse-dropdown" id="reuse-dropdown">
-                    <!-- populated dynamically -->
-                  </div>
-                </div>
-                <button class="btn btn-primary" onclick="addTrigger()"
-                  style="font-size:0.82rem; padding:0.45rem 0.9rem;">+ Add Trigger</button>
-              </div>
-            </div>
-            <div id="trigger-list">
-              <!-- populated dynamically -->
-            </div>
-            <div class="empty-triggers" id="empty-triggers" style="display:none;">
-              <div class="icon">⚡</div>
-              <p>No triggers yet. Add one to get started!</p>
-            </div>
-            <div id="variables-container"></div>
-            <div id="ranked-mode-container"></div>
-          </div>
-        </div>
-        <div class="monitor-bar">
-          <div class="connection-dot" id="monitor-dot"></div>
-          <div class="status-text" id="monitor-status">Not connected</div>
-        </div>
+      <div class="add-channel">
+        <input class="input" type="text" id="add-channel-input" placeholder="Add channel…" autocomplete="off"
+          aria-label="Channel name" onkeydown="if(event.key==='Enter') addChannel()">
+        <button class="btn btn-primary" onclick="addChannel()" title="Add channel" aria-label="Add channel">+</button>
       </div>
+    </aside>
 
-      <!-- Activity Log -->
-      <div class="activity-panel">
-        <div class="activity-header">
-          <h3>Activity Log</h3>
-          <button class="btn btn-ghost" onclick="clearLog()"
-            style="font-size:0.72rem; padding:0.3rem 0.6rem;">Clear</button>
-        </div>
-        <div class="activity-log" id="activity-log">
-          <div class="activity-empty" id="activity-empty">
-            Waiting for activity…<br>Triggers will appear here in real-time.
-          </div>
-        </div>
+    <main class="main" id="main">
+      <!-- populated dynamically -->
+    </main>
+
+    <section class="activity" id="activity">
+      <div class="activity-head" role="button" tabindex="0" aria-controls="activity-log" onclick="toggleLog()"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleLog()}">
+        <span class="section-label">Activity</span>
+        <span class="log-time" id="activity-last-time"></span>
+        <span class="activity-last" id="activity-last">Waiting for activity…</span>
+        <button class="btn btn-plain activity-clear" onclick="event.stopPropagation(); clearLog()">Clear</button>
+        <span class="activity-toggle" id="activity-toggle">Show log ▴</span>
       </div>
+      <div class="activity-log" id="activity-log">
+        <div class="activity-empty" id="activity-empty">Waiting for activity…</div>
+      </div>
+    </section>
 
-    </div>
   </div>
 
   <script>
@@ -1504,7 +1856,27 @@
     function closeHelp() {
       document.getElementById('help-modal').classList.remove('active');
     }
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeHelp(); });
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Escape') return;
+      closeHelp();
+      closeCopyMenu();
+    });
+
+    // ── Theme ──
+    // The initial theme is set by the inline script in <head>
+    const LS_THEME = 'ar_theme';
+
+    function applyTheme(theme) {
+      document.documentElement.dataset.theme = theme;
+      document.querySelector('meta[name="theme-color"]').setAttribute('content', theme === 'dark' ? '#141312' : '#f6f5f2');
+      document.getElementById('theme-btn').textContent = theme === 'dark' ? 'Light mode' : 'Dark mode';
+    }
+
+    function toggleTheme() {
+      const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+      try { localStorage.setItem(LS_THEME, next); } catch (e) { }
+      applyTheme(next);
+    }
 
     // ── Constants ──
     const TWITCH_CLIENT_ID = '8bg8a5nnibxhf2w9uq6oiv0m71plux';
@@ -1520,21 +1892,27 @@
     let userIdCache = {}; // channelName -> userId cache
     let profiles = {}; // { channelName: { triggers: [ { phrase, response, useCounter, counterStart, counterValue } ] } }
     let selectedChannel = null;
+    let selectedTrigger = 0; // index into the selected channel's triggers
+    let activeTab = 'triggers'; // 'triggers' | 'vars' | 'ranked'
+    let advancedOpen = false; // trigger editor's Advanced section
+    let previewResponse = 0; // which reply the chat preview shows
+    let logOpen = localStorage.getItem('ar_log_open') === '1';
     let ircSocket = null;
     let ircConnected = false;
     let joinedChannels = new Set();
     let reconnectTimer = null;
-    let activityLog = [];
     let lastSentMessages = {}; // channelName -> lastMsg (to avoid duplicate blocks)
     let previousLatestGamesState = {}; // channelName -> latestGames array for ranked tracking
     let previousRatingState = {}; // channelName -> last seen ELO rating (streak fallback)
     let rankedPollInterval = null;
     let rankedTestResult = null; // { ok, message } shown in the card
-    let fetchTestResults = new WeakMap(); // trigger -> fetch test result shown in its card
+    let fetchTestResults = new WeakMap(); // trigger -> fetch test result shown in its editor
     const FETCH_TIMEOUT_MS = 8000;
+    const PREVIEW_USER = 'viewer';
 
     // ── Init ──
     window.addEventListener('DOMContentLoaded', () => {
+      applyTheme(document.documentElement.dataset.theme);
       checkOAuthReturn();
     });
 
@@ -1670,7 +2048,10 @@
         userId = localStorage.getItem('ar_twitch_user_id') || '';
       }
       loadProfiles();
+      if (!profiles[selectedChannel]) selectedChannel = Object.keys(profiles)[0] || null;
       renderChannelList();
+      renderChannelView();
+      renderLogState();
       connectIRC();
       startRankedPolling();
     }
@@ -1688,6 +2069,8 @@
 
     function saveProfiles() {
       localStorage.setItem(LS_PROFILES, JSON.stringify(profiles));
+      // Refresh the header's channel/trigger counts
+      if (ircConnected) updateConnectionUI('connected');
     }
 
     // ── Channel Management ──
@@ -1695,6 +2078,10 @@
       const input = document.getElementById('add-channel-input');
       const name = input.value.trim().toLowerCase().replace(/^#/, '');
       if (!name) return;
+      if (!/^[a-z0-9_]+$/.test(name)) {
+        alert('Twitch channel names can only use letters, numbers and _');
+        return;
+      }
       if (profiles[name]) {
         selectChannel(name);
         input.value = '';
@@ -1702,7 +2089,6 @@
       }
       profiles[name] = { triggers: [] };
       saveProfiles();
-      renderChannelList();
       selectChannel(name);
       input.value = '';
 
@@ -1712,210 +2098,446 @@
       }
     }
 
-    function removeChannel(name, event) {
-      event.stopPropagation();
+    function removeChannel(name) {
       if (!confirm(`Remove channel #${name} and all its triggers?`)) return;
       delete profiles[name];
       saveProfiles();
       if (selectedChannel === name) {
-        selectedChannel = null;
-        renderTriggerEditor();
+        selectedChannel = Object.keys(profiles)[0] || null;
+        selectedTrigger = 0;
       }
       renderChannelList();
+      renderChannelView();
       if (ircConnected) leaveChannel(name);
     }
 
     function selectChannel(name) {
+      if (name !== selectedChannel) {
+        selectedTrigger = 0;
+        previewResponse = 0;
+      }
       selectedChannel = name;
       renderChannelList();
-      renderTriggerEditor();
+      renderChannelView();
     }
 
     function renderChannelList() {
       const container = document.getElementById('channel-list');
       const channelNames = Object.keys(profiles);
       if (channelNames.length === 0) {
-        container.innerHTML = '<div style="padding:1.5rem 0.75rem; text-align:center; color:var(--text-muted); font-size:0.82rem;">No channels added yet</div>';
+        container.innerHTML = '<div class="channel-empty">No channels yet</div>';
         return;
       }
       container.innerHTML = channelNames.map(name => {
-        const triggerCount = profiles[name].triggers.length;
-        const isActive = name === selectedChannel;
-        const isPaused = profiles[name].paused;
+        const profile = profiles[name];
+        const classes = ['channel-item', name === selectedChannel ? 'active' : '', profile.paused ? 'paused' : ''].join(' ');
         return `
-          <div class="channel-item ${isActive ? 'active' : ''} ${isPaused ? 'paused' : ''}" onclick="selectChannel('${name}')">
-            <div class="channel-info">
-              <div class="channel-icon">${name.charAt(0)}</div>
-              <div class="channel-name">${name}${isPaused ? '<span class="paused-badge">PAUSED</span>' : ''}</div>
+          <button class="${classes}" data-channel="${escapeAttr(name)}" onclick="selectChannel(this.dataset.channel)">
+            <span class="channel-dot"></span>
+            <span class="channel-name">${escapeHtml(name)}</span>
+            <span class="channel-meta">${profile.paused ? 'paused' : profile.triggers.length}</span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    // ── Channel View ──
+    const TABS = [['triggers', 'Triggers'], ['vars', 'Variables'], ['ranked', 'Ranked title']];
+
+    function renderChannelView() {
+      const main = document.getElementById('main');
+      if (!selectedChannel || !profiles[selectedChannel]) {
+        main.innerHTML = `
+          <div class="main-empty">
+            <strong>No channel selected</strong>
+            <span>Add a channel on the left to start configuring triggers.</span>
+          </div>
+        `;
+        return;
+      }
+
+      const profile = profiles[selectedChannel];
+      selectedTrigger = Math.max(0, Math.min(selectedTrigger, profile.triggers.length - 1));
+      main.innerHTML = `
+        <div class="channel-header">
+          <div class="channel-header-left">
+            <div class="channel-title">
+              <h1><span class="hash">#</span>${escapeHtml(selectedChannel)}</h1>
+              <span class="badge" id="channel-badge"></span>
             </div>
-            <div style="display:flex; align-items:center; gap:0.4rem;">
-              <span class="channel-trigger-count">${triggerCount}</span>
-              <button class="btn btn-icon btn-ghost channel-remove" onclick="removeChannel('${name}', event)" title="Remove">×</button>
+            <div class="tabs" role="tablist">
+              ${TABS.map(([id, label]) => `
+                <button class="tab ${activeTab === id ? 'active' : ''}" role="tab" aria-selected="${activeTab === id}"
+                  onclick="selectTab('${id}')">${label}<span class="tab-meta" id="tab-meta-${id}">${tabMeta(id)}</span></button>
+              `).join('')}
             </div>
+          </div>
+          <div class="channel-actions">
+            <button class="btn" onclick="togglePauseChannel()">${profile.paused ? 'Resume channel' : 'Pause channel'}</button>
+            <button class="btn btn-plain" onclick="removeChannel(selectedChannel)" title="Remove this channel">Remove</button>
+          </div>
+        </div>
+        <div class="tab-content" id="tab-content"></div>
+      `;
+      updateChannelBadge();
+      renderTabContent();
+    }
+
+    function selectTab(tab) {
+      activeTab = tab;
+      renderChannelView();
+    }
+
+    function renderTabContent() {
+      const el = document.getElementById('tab-content');
+      if (!el) return;
+      if (activeTab === 'vars') el.innerHTML = renderVariablesTab();
+      else if (activeTab === 'ranked') el.innerHTML = renderRankedTab();
+      else el.innerHTML = renderTriggersTab();
+    }
+
+    function tabMeta(tab) {
+      if (tab === 'triggers') return profiles[selectedChannel].triggers.length;
+      if (tab === 'vars') return Object.keys(getVariables(selectedChannel)).length;
+      return getRankedMode(selectedChannel).enabled ? 'on' : 'off';
+    }
+
+    function refreshTabMeta() {
+      if (!selectedChannel || !profiles[selectedChannel]) return;
+      TABS.forEach(([id]) => {
+        const el = document.getElementById(`tab-meta-${id}`);
+        if (el) el.textContent = tabMeta(id);
+      });
+    }
+
+    function updateChannelBadge() {
+      const el = document.getElementById('channel-badge');
+      if (!el || !profiles[selectedChannel]) return;
+      const [cls, label] = profiles[selectedChannel].paused ? ['badge-muted', 'paused']
+        : ircConnected ? ['badge-ok', 'listening'] : ['badge-muted', 'offline'];
+      el.className = `badge ${cls}`;
+      el.textContent = label;
+    }
+
+    // ── Trigger Management ──
+    function renderTriggersTab() {
+      return `
+        <div class="triggers-layout">
+          <div class="trigger-list-col">
+            <div class="trigger-list-actions">
+              <button class="btn btn-primary" onclick="addTrigger()">+ New trigger</button>
+              <button class="btn" onclick="toggleCopyMenu(event)">Copy from…</button>
+              <div class="copy-menu" id="copy-menu"></div>
+            </div>
+            <div class="trigger-list" id="trigger-list">${renderTriggerListItems()}</div>
+          </div>
+          <div class="editor" id="trigger-editor">${renderEditor()}</div>
+        </div>
+      `;
+    }
+
+    function currentTrigger() {
+      return profiles[selectedChannel] ? profiles[selectedChannel].triggers[selectedTrigger] : null;
+    }
+
+    // Old triggers stored a single `response`; newer ones a weighted `responses` list
+    function getResponses(t) {
+      return t.responses && t.responses.length > 0 ? t.responses : [{ text: t.response || '', weight: 1 }];
+    }
+
+    function countUsers(list) {
+      return (list || '').split(',').filter(u => u.trim()).length;
+    }
+
+    function triggerBadges(t) {
+      const badges = [];
+      const replies = getResponses(t).filter(r => r.text.trim()).length;
+      const allowed = countUsers(t.allowedUsers);
+      if (replies > 1) badges.push(`${replies} random`);
+      if (t.useCounter) badges.push(`count ${t.counterValue ?? t.counterStart ?? 0}`);
+      if (t.cooldown) badges.push(`${t.cooldown}s cooldown`);
+      if (t.delay) badges.push(`${t.delay}s delay`);
+      if (allowed) badges.push(`${allowed} user${allowed !== 1 ? 's' : ''} only`);
+      if (t.fetchUrl && t.fetchUrl.trim()) badges.push('fetch');
+      if (t.matchAnywhere) badges.push('anywhere');
+      return badges;
+    }
+
+    function renderTriggerListItems() {
+      const triggers = profiles[selectedChannel].triggers;
+      if (triggers.length === 0) return '<div class="list-empty">No triggers yet.</div>';
+      return triggers.map((t, i) => {
+        const enabled = t.enabled !== false;
+        const reply = getResponses(t).map(r => r.text).filter(Boolean).join('  /  ') || 'No reply yet';
+        const badges = triggerBadges(t);
+        return `
+          <div class="trigger-item ${i === selectedTrigger ? 'selected' : ''} ${enabled ? '' : 'disabled'}" tabindex="0"
+            onclick="selectTrigger(${i})" onkeydown="if(event.key==='Enter' && event.target===this) selectTrigger(${i})">
+            <div class="trigger-item-body">
+              <div class="trigger-item-phrase">${escapeHtml(t.phrase || '(no phrase)')}</div>
+              <div class="trigger-item-reply">${escapeHtml(reply)}</div>
+              ${badges.length ? `<div class="badges">${badges.map(b => `<span class="badge-chip">${escapeHtml(b)}</span>`).join('')}</div>` : ''}
+            </div>
+            ${switchHtml(enabled, '', `event.stopPropagation(); toggleTriggerEnabled(${i})`, 'Active')}
           </div>
         `;
       }).join('');
     }
 
-    // ── Trigger Management ──
-    function renderTriggerEditor() {
-      const noMsg = document.getElementById('no-channel-msg');
-      const editor = document.getElementById('trigger-editor');
+    function switchHtml(on, labelHtml, onclick, ariaLabel = '') {
+      return `
+        <button class="switch-label" role="switch" aria-checked="${!!on}" ${ariaLabel ? `aria-label="${ariaLabel}"` : ''}
+          onclick="${onclick}"><span class="switch ${on ? 'on' : ''}"></span>${labelHtml}</button>
+      `;
+    }
 
-      if (!selectedChannel || !profiles[selectedChannel]) {
-        noMsg.style.display = 'flex';
-        editor.style.display = 'none';
-        return;
-      }
-
-      noMsg.style.display = 'none';
-      editor.style.display = 'block';
-      document.getElementById('selected-channel-name').textContent = selectedChannel;
-
-      const triggers = profiles[selectedChannel].triggers;
-      const list = document.getElementById('trigger-list');
-      const empty = document.getElementById('empty-triggers');
-
-      if (triggers.length === 0) {
-        list.innerHTML = '';
-        empty.style.display = 'block';
-      } else {
-        empty.style.display = 'none';
-
-        // Update channel pause button
-        const pauseBtn = document.getElementById('channel-pause-btn');
-        if (profiles[selectedChannel].paused) {
-          pauseBtn.className = 'btn btn-success';
-          pauseBtn.innerHTML = '▶ Resume Channel';
-        } else {
-          pauseBtn.className = 'btn btn-warning';
-          pauseBtn.innerHTML = '⏸ Pause Channel';
-        }
-
-        list.innerHTML = triggers.map((t, i) => {
-        const counterClass = t.useCounter ? 'active' : '';
-        const anywhereClass = t.matchAnywhere ? 'active' : '';
-        const enabledClass = (t.enabled !== false) ? 'active' : '';
-        const cardDisabled = (t.enabled === false) ? 'disabled' : '';
-        const counterDisplay = t.useCounter ? '' : 'display:none;';
+    function renderEditor() {
+      const t = currentTrigger();
+      if (!t) {
         return `
-          <div class="trigger-card ${cardDisabled}" id="trigger-${i}">
-            <div class="trigger-row">
-              <div class="trigger-field" style="flex:0.4; min-width:120px;">
-                <label>Trigger Phrase</label>
-                <input type="text" value="${escapeAttr(t.phrase)}" placeholder="!command"
-                  onchange="updateTrigger(${i}, 'phrase', this.value)">
-              </div>
-              <div class="trigger-field" style="flex:1;">
-                <label>Responses (use placeholders below)</label>
-                <div class="responses-container">
-                  ${(t.responses && t.responses.length > 0 ? t.responses : [{ text: t.response || '', weight: 1 }]).map((r, ri) => `
-                    <div class="response-row">
-                      <input type="text" class="response-text-input" value="${escapeAttr(r.text)}" 
-                        placeholder="Bot response text…" onchange="updateResponse(${i}, ${ri}, 'text', this.value)">
-                      <span class="weight-label">W:</span>
-                      <input type="number" class="response-weight-input" value="${r.weight || 1}" step="0.1" min="0"
-                        onchange="updateResponse(${i}, ${ri}, 'weight', parseFloat(this.value) || 0)" title="Relative Weight/Probability">
-                      <button class="btn btn-icon btn-ghost" onclick="removeResponse(${i}, ${ri})" title="Remove response" 
-                        style="width:24px; height:24px; font-size:0.75rem; border-radius:4px;">×</button>
-                    </div>
-                  `).join('')}
-                </div>
-                <button class="btn btn-add-response" onclick="addResponse(${i})">+ Add Random Alternative</button>
-              </div>
-            </div>
-            <div class="trigger-row" style="margin-top:0.6rem;">
-              <div class="trigger-field">
-                <label>Fetch URL <span style="font-weight:400; opacity:0.6;">(optional, then use {fetch:field.path} in responses)</span></label>
-                <div style="display:flex; gap:0.5rem;">
-                  <input type="text" value="${escapeAttr(t.fetchUrl || '')}" placeholder="https://api.example.com/data?id={1|1}"
-                    style="flex:1;" onchange="updateTrigger(${i}, 'fetchUrl', this.value)">
-                  <button class="btn btn-ghost" style="font-size:0.78rem; padding:0.35rem 0.75rem; flex-shrink:0;"
-                    onclick="testFetch(${i})" title="Fetch now and list the fields you can use">Test</button>
-                </div>
-                ${renderFetchTest(t)}
-              </div>
-            </div>
-            <div class="trigger-row" style="margin-top:0.6rem;">
-              <div class="trigger-field" style="flex:1;">
-                <label>Cooldown (seconds)</label>
-                <input type="number" value="${t.cooldown || 0}" min="0" placeholder="0"
-                  onchange="updateTrigger(${i}, 'cooldown', parseInt(this.value) || 0)">
-              </div>
-              <div class="trigger-field" style="flex:1;">
-                <label>Delay (seconds)</label>
-                <input type="number" value="${t.delay || 0}" min="0" placeholder="0"
-                  onchange="updateTrigger(${i}, 'delay', parseInt(this.value) || 0)">
-              </div>
-            </div>
-            <div class="trigger-row" style="margin-top:0.6rem;">
-              <div class="trigger-field">
-                <label>Allowed Users <span style="font-weight:400; opacity:0.6;">(comma-separated, empty = everyone)</span></label>
-                <input type="text" value="${escapeAttr(t.allowedUsers || '')}" placeholder="user1, user2, user3"
-                  onchange="updateTrigger(${i}, 'allowedUsers', this.value)">
-              </div>
-            </div>
-            <div class="trigger-row" style="margin-top:0.6rem;">
-              <div class="trigger-field">
-                <label>Disallowed Users <span style="font-weight:400; opacity:0.6;">(ignore these accounts)</span></label>
-                <input type="text" value="${escapeAttr(t.disallowedUsers || '')}" placeholder="bot1, troll2"
-                  onchange="updateTrigger(${i}, 'disallowedUsers', this.value)">
-              </div>
-            </div>
-            <div class="trigger-row" style="margin-top:0.6rem; opacity:0.75;">
-              <div class="trigger-field">
-                <div style="font-size:0.7rem; color:var(--text-muted); display:flex; flex-wrap:wrap; gap:0.3rem 1rem;">
-                  <span><code style="color:var(--accent);">{count}</code> &rarr; Current count</span>
-                  <span><code style="color:var(--accent);">{username}</code> &rarr; Sender's name</span>
-                  <span><code style="color:var(--accent);">{1}</code> &rarr; 1st word after command</span>
-                  <span><code style="color:var(--accent);">{var:name+1}</code> &rarr; Variable</span>
-                  <span><code style="color:var(--accent);">{fetch:path}</code> &rarr; Fetched field</span>
-                  <span><code style="color:var(--accent);">{1|1}</code> &rarr; Fallback if missing</span>
-                </div>
-              </div>
-            </div>
-            <div class="trigger-bottom">
-              <div class="counter-section">
-                <div class="toggle-wrapper" onclick="toggleTriggerEnabled(${i})">
-                  <div class="toggle ${enabledClass}"></div>
-                  <span>Active</span>
-                </div>
-                <div class="toggle-wrapper" onclick="toggleCounter(${i})">
-                  <div class="toggle ${counterClass}"></div>
-                  <span>Counter</span>
-                </div>
-                <div class="toggle-wrapper" onclick="toggleMatchAnywhere(${i})" title="Trigger if word is anywhere in message">
-                  <div class="toggle ${t.matchAnywhere ? 'active' : ''}"></div>
-                  <span>Anywhere</span>
-                </div>
-                <div class="toggle-wrapper" onclick="toggleRespondToBot(${i})" title="Allow bot to respond to its own messages for this trigger">
-                  <div class="toggle ${t.respondToBot ? 'active' : ''}"></div>
-                  <span>Respond to Bot</span>
-                </div>
-                <div class="counter-start" style="${counterDisplay}" id="counter-opts-${i}">
-                  <label>Start:</label>
-                  <input type="number" value="${t.counterStart || 0}"
-                    onchange="updateTrigger(${i}, 'counterStart', parseInt(this.value) || 0)">
-                  <span class="counter-current" title="Current counter value">Now: ${t.counterValue ?? t.counterStart ?? 0}</span>
-                  <button class="btn btn-ghost" style="font-size:0.7rem; padding:0.2rem 0.4rem;"
-                    onclick="resetCounter(${i})" title="Reset counter to start value">↺</button>
-                </div>
-              </div>
-              <button class="btn btn-danger btn-icon" onclick="removeTrigger(${i})" title="Delete trigger"
-                style="font-size:0.85rem;">✕</button>
-            </div>
+          <div class="main-empty">
+            <strong>No trigger selected</strong>
+            <span>Create a trigger to reply to a chat command.</span>
           </div>
         `;
-      }).join('');
-      } // end else (triggers.length > 0)
+      }
+      const i = selectedTrigger;
+      const enabled = t.enabled !== false;
+      const responses = getResponses(t);
+      const multi = responses.length > 1;
+      return `
+        <div class="editor-head">
+          <div class="section-label">Edit trigger</div>
+          <div class="editor-head-actions">
+            ${switchHtml(enabled, enabled ? 'On' : 'Off', `toggleTriggerEnabled(${i})`)}
+            <button class="btn btn-danger" onclick="removeTrigger(${i})">Delete</button>
+          </div>
+        </div>
 
-      document.getElementById('variables-container').innerHTML = renderVariablesCard();
-      document.getElementById('ranked-mode-container').innerHTML = renderRankedModeCard();
+        <div class="field-group">
+          <label class="field-title" for="phrase-input">When someone types</label>
+          <div class="phrase-row">
+            <input class="input mono phrase-input" id="phrase-input" type="text" value="${escapeAttr(t.phrase)}"
+              placeholder="!command" autocomplete="off" oninput="updateTrigger(${i}, 'phrase', this.value)">
+            <div class="segmented" role="group" aria-label="Where the phrase must appear">
+              <button class="${t.matchAnywhere ? '' : 'on'}" aria-pressed="${!t.matchAnywhere}"
+                onclick="setMatchAnywhere(${i}, false)" title="Message starts with the phrase">At start</button>
+              <button class="${t.matchAnywhere ? 'on' : ''}" aria-pressed="${!!t.matchAnywhere}"
+                onclick="setMatchAnywhere(${i}, true)" title="Phrase appears anywhere in the message">Anywhere</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <div class="field-head">
+            <div class="field-title">Reply with</div>
+            <div class="field-hint">${multi ? 'Picks one at random, by weight' : 'One reply'}</div>
+          </div>
+          ${responses.map((r, ri) => `
+            <div class="response-row">
+              <input class="input response-input" type="text" data-placeholders value="${escapeAttr(r.text)}"
+                placeholder="Reply text…" aria-label="Reply ${ri + 1}"
+                onfocus="previewResponse = ${ri}; refreshPreview()"
+                oninput="updateResponse(${i}, ${ri}, 'text', this.value)">
+              ${multi ? `
+                <input class="input weight-input" type="number" value="${r.weight ?? 1}" step="0.1" min="0"
+                  title="Weight: how often this reply is picked" aria-label="Weight of reply ${ri + 1}"
+                  oninput="updateResponse(${i}, ${ri}, 'weight', parseFloat(this.value) || 0)">
+                <span class="response-pct" id="response-pct-${ri}">${responsePercent(t, ri)}</span>
+                <button class="btn btn-plain btn-remove" onclick="removeResponse(${i}, ${ri})"
+                  title="Remove reply" aria-label="Remove reply ${ri + 1}">×</button>
+              ` : ''}
+            </div>
+          `).join('')}
+          <div class="insert-row">
+            <button class="btn btn-dashed" onclick="addResponse(${i})">+ Random alternative</button>
+            <div class="divider-v"></div>
+            <span class="field-hint">Insert</span>
+            ${insertChips().map(([name, placeholder]) => `
+              <button class="insert-chip" data-insert="${escapeAttr(placeholder)}" title="Insert ${name}"
+                onmousedown="event.preventDefault()" onclick="insertPlaceholder(this.dataset.insert)">
+                <b>${name}</b><code>${escapeHtml(placeholder)}</code></button>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="preview-well" id="reply-preview">${renderPreview(t)}</div>
+
+        <div class="advanced">
+          <button class="advanced-head" onclick="toggleAdvanced()" aria-expanded="${advancedOpen}">
+            <span class="advanced-title"><span class="chev">${advancedOpen ? '▾' : '▸'}</span>Advanced</span>
+            <span class="advanced-summary" id="advanced-summary">${escapeHtml(advancedSummary(t))}</span>
+          </button>
+          ${advancedOpen ? renderAdvancedBody(t, i) : ''}
+        </div>
+      `;
+    }
+
+    function renderAdvancedBody(t, i) {
+      return `
+        <div class="advanced-body">
+          <label class="form-label">Cooldown (seconds)
+            <input class="input" type="number" value="${t.cooldown || 0}" min="0"
+              oninput="updateTrigger(${i}, 'cooldown', parseInt(this.value) || 0)">
+          </label>
+          <label class="form-label">Delay before reply (seconds)
+            <input class="input" type="number" value="${t.delay || 0}" min="0"
+              oninput="updateTrigger(${i}, 'delay', parseInt(this.value) || 0)">
+          </label>
+          <label class="form-label">Only these users
+            <input class="input" type="text" value="${escapeAttr(t.allowedUsers || '')}" placeholder="Everyone (or: user1, user2)"
+              oninput="updateTrigger(${i}, 'allowedUsers', this.value)">
+          </label>
+          <label class="form-label">Ignore these users
+            <input class="input" type="text" value="${escapeAttr(t.disallowedUsers || '')}" placeholder="Nobody (or: bot1, bot2)"
+              oninput="updateTrigger(${i}, 'disallowedUsers', this.value)">
+          </label>
+          <div class="form-label span-2">
+            <label for="fetch-url-input">Fetch data from URL, then use <span class="token">{fetch:field}</span> in the reply</label>
+            <div class="fetch-row">
+              <input class="input mono" id="fetch-url-input" type="text" data-placeholders value="${escapeAttr(t.fetchUrl || '')}"
+                placeholder="https://api.example.com/data?id={1|1}" autocomplete="off"
+                oninput="updateTrigger(${i}, 'fetchUrl', this.value)">
+              <button class="btn" onclick="testFetch(${i})" title="Fetch now and list the fields you can use">Test</button>
+            </div>
+            <div id="fetch-test">${renderFetchTest(t)}</div>
+          </div>
+          <div class="span-2 toggles-row">
+            ${switchHtml(t.useCounter, 'Counter for <span class="token">{count}</span>', `toggleCounter(${i})`)}
+            ${t.useCounter ? `
+              <div class="counter-info">
+                Starts at
+                <input class="input counter-start" type="number" value="${t.counterStart || 0}" aria-label="Counter start value"
+                  oninput="updateTrigger(${i}, 'counterStart', parseInt(this.value) || 0)">
+                · Now at <span class="token" id="counter-now">${t.counterValue ?? t.counterStart ?? 0}</span>
+                <button class="btn btn-small" onclick="resetCounter(${i})" title="Reset to the start value">Reset</button>
+              </div>
+            ` : ''}
+            ${switchHtml(t.respondToBot, 'Reply to my own messages', `toggleRespondToBot(${i})`)}
+          </div>
+        </div>
+      `;
+    }
+
+    function advancedSummary(t) {
+      const allowed = countUsers(t.allowedUsers);
+      const ignored = countUsers(t.disallowedUsers);
+      const parts = [t.cooldown ? `${t.cooldown}s cooldown` : 'No cooldown'];
+      if (t.delay) parts.push(`${t.delay}s delay`);
+      parts.push(allowed ? `${allowed} user${allowed !== 1 ? 's' : ''} only` : 'Everyone');
+      if (ignored) parts.push(`${ignored} ignored`);
+      if (t.fetchUrl && t.fetchUrl.trim()) parts.push('Fetches data');
+      if (t.useCounter) parts.push('Counter on');
+      if (t.respondToBot) parts.push('Replies to self');
+      return parts.join(' · ');
+    }
+
+    function responsePercent(t, responseIndex) {
+      const responses = getResponses(t);
+      const total = responses.reduce((sum, r) => sum + (parseFloat(r.weight) || 0), 0) || 1;
+      return Math.round((parseFloat(responses[responseIndex].weight) || 0) / total * 100) + '%';
+    }
+
+    function insertChips() {
+      const varName = Object.keys(getVariables(selectedChannel))[0] || 'name';
+      return [
+        ['Sender', '{username}'],
+        ['Count', '{count}'],
+        ['Next word', '{1|default}'],
+        ['Variable', `{var:${varName}}`],
+        ['Fetched', '{fetch:field}'],
+      ];
+    }
+
+    // Inserts at the cursor of the focused reply / fetch URL field, or appends to the last reply.
+    // The chips cancel mousedown, so clicking one doesn't steal focus from the field.
+    function insertPlaceholder(text) {
+      let input = document.activeElement;
+      if (!input || !input.hasAttribute('data-placeholders')) {
+        const replies = document.querySelectorAll('.response-input');
+        input = replies[replies.length - 1];
+        if (!input) return;
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+        if (input.value && !/\s$/.test(input.value)) text = ' ' + text;
+      }
+      input.setRangeText(text, input.selectionStart, input.selectionEnd, 'end');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    // Renders the selected reply with sample data. Nothing is committed: counters and
+    // variables only show what they would become.
+    function renderPreview(t) {
+      const responses = getResponses(t);
+      const response = (responses[previewResponse] && responses[previewResponse].text.trim())
+        ? responses[previewResponse]
+        : responses.find(r => r.text.trim());
+      const hasFetchUrl = t.fetchUrl && t.fetchUrl.trim();
+      const tested = fetchTestResults.get(t);
+
+      let reply;
+      if (!response) {
+        reply = '<span class="muted">No reply yet</span>';
+      } else {
+        const ctx = createTemplateContext(selectedChannel, PREVIEW_USER, [], t);
+        ctx.preview = true;
+        if (hasFetchUrl && tested && !tested.pending) ctx.fetched = tested;
+        try {
+          reply = escapeHtml(renderTemplate(response.text, ctx)) || '<span class="muted">(empty)</span>';
+        } catch (e) {
+          if (!(e instanceof TemplateError)) throw e;
+          reply = `<span class="preview-skip">Won't reply — ${escapeHtml(e.message)}</span>`;
+        }
+      }
+
+      const note = hasFetchUrl && (!tested || tested.pending)
+        ? '<div class="preview-note">Press Test under Advanced to preview fetched values.</div>'
+        : '';
+      return `
+        <div class="section-label">Preview in chat</div>
+        <div class="chat-line"><span class="chat-user">${PREVIEW_USER}</span><span class="chat-dim">: ${escapeHtml(t.phrase || '!command')}</span></div>
+        <div class="chat-line"><span class="chat-bot">${escapeHtml(username || 'you')}</span>: ${reply}</div>
+        ${note}
+      `;
+    }
+
+    // Partial refreshes, so typing in the editor keeps focus
+    function refreshEditor() {
+      const el = document.getElementById('trigger-editor');
+      if (el) el.innerHTML = renderEditor();
+    }
+
+    function refreshTriggerList() {
+      const el = document.getElementById('trigger-list');
+      if (el) el.innerHTML = renderTriggerListItems();
+    }
+
+    function refreshPreview() {
+      const el = document.getElementById('reply-preview');
+      const t = currentTrigger();
+      if (el && t) el.innerHTML = renderPreview(t);
+    }
+
+    function refreshTriggerDerived() {
+      const t = currentTrigger();
+      const summary = document.getElementById('advanced-summary');
+      if (summary && t) summary.textContent = advancedSummary(t);
+      refreshTriggerList();
+      refreshPreview();
+    }
+
+    function selectTrigger(index) {
+      if (index === selectedTrigger) return;
+      selectedTrigger = index;
+      previewResponse = 0;
+      refreshTriggerList();
+      refreshEditor();
     }
 
     function addTrigger() {
       if (!selectedChannel) return;
-      profiles[selectedChannel].triggers.push({
+      const triggers = profiles[selectedChannel].triggers;
+      triggers.push({
         phrase: '',
         response: '',
         allowedUsers: '',
@@ -1931,16 +2553,25 @@
         responses: [],
         fetchUrl: '',
       });
+      selectedTrigger = triggers.length - 1;
+      previewResponse = 0;
+      activeTab = 'triggers';
       saveProfiles();
-      renderTriggerEditor();
+      renderChannelView();
       renderChannelList();
+      document.getElementById('phrase-input').focus();
     }
 
     function removeTrigger(index) {
       if (!selectedChannel) return;
-      profiles[selectedChannel].triggers.splice(index, 1);
+      const triggers = profiles[selectedChannel].triggers;
+      if (!triggers[index]) return;
+      if (!confirm(`Delete trigger "${triggers[index].phrase || '(no phrase)'}"?`)) return;
+      triggers.splice(index, 1);
+      selectedTrigger = Math.max(0, index - 1);
+      previewResponse = 0;
       saveProfiles();
-      renderTriggerEditor();
+      renderChannelView();
       renderChannelList();
     }
 
@@ -1949,67 +2580,45 @@
       const t = profiles[selectedChannel].triggers[index];
       if (!t) return;
       t[field] = value;
-      if (field === 'counterStart') {
-        // Don't auto-reset counterValue when changing start
-      }
       saveProfiles();
-      // Only re-render if counter visibility changed
-      if (field === 'useCounter') renderTriggerEditor();
+      refreshTriggerDerived();
     }
 
-    // ── Reuse Logic ──
-    function toggleReuseDropdown(event) {
+    // ── Copy From Other Channels ──
+    function toggleCopyMenu(event) {
       event.stopPropagation();
-      const dd = document.getElementById('reuse-dropdown');
-      const isActive = dd.classList.contains('active');
-
-      if (!isActive) {
-        renderReuseDropdown();
-        dd.classList.add('active');
-      } else {
-        dd.classList.remove('active');
-      }
-    }
-
-    function renderReuseDropdown() {
-      const dd = document.getElementById('reuse-dropdown');
-      const otherChannels = Object.keys(profiles).filter(ch => ch !== selectedChannel);
-
-      if (otherChannels.length === 0) {
-        dd.innerHTML = '<div style="padding:0.75rem 1rem; color:var(--text-muted); font-size:0.8rem; text-align:center;">Add other channels first</div>';
+      const menu = document.getElementById('copy-menu');
+      if (menu.classList.contains('open')) {
+        menu.classList.remove('open');
         return;
       }
+      menu.innerHTML = renderCopyMenu();
+      menu.classList.add('open');
+    }
 
-      dd.innerHTML = otherChannels.map(ch => {
+    function closeCopyMenu() {
+      const menu = document.getElementById('copy-menu');
+      if (menu) menu.classList.remove('open');
+    }
+
+    function renderCopyMenu() {
+      const otherChannels = Object.keys(profiles).filter(ch => ch !== selectedChannel);
+      if (otherChannels.length === 0) {
+        return '<div class="copy-menu-empty">Add another channel to copy its triggers.</div>';
+      }
+      return otherChannels.map(ch => {
         const triggers = profiles[ch].triggers;
-        const triggerListHtml = triggers.length > 0 ? triggers.map((t, idx) => {
-          const firstResp = (t.responses && t.responses.length > 0)
-            ? t.responses[0].text
-            : (t.response || 'No response');
-          const moreCount = (t.responses && t.responses.length > 1)
-            ? t.responses.length - 1
-            : 0;
-
+        const items = triggers.length > 0 ? triggers.map((t, idx) => {
+          const responses = getResponses(t);
+          const more = responses.length > 1 ? ` (+${responses.length - 1})` : '';
           return `
-            <div class="reuse-trigger-item" onclick="copyTrigger('${ch}', ${idx})">
-              <span class="reuse-trigger-phrase">${escapeHtml(t.phrase || '(no phrase)')}</span>
-              <span class="reuse-trigger-response">
-                ${escapeHtml(firstResp)}
-                ${moreCount > 0 ? `<span class="reuse-trigger-more">+${moreCount}</span>` : ''}
-              </span>
-            </div>
+            <button class="copy-menu-item" data-channel="${escapeAttr(ch)}" onclick="copyTrigger(this.dataset.channel, ${idx})">
+              <b>${escapeHtml(t.phrase || '(no phrase)')}</b>
+              <span>${escapeHtml((responses[0].text || 'No reply') + more)}</span>
+            </button>
           `;
-        }).join('') : '<div style="padding:0.75rem 1rem; color:var(--text-muted); font-size:0.8rem; text-align:center;">No triggers in this channel</div>';
-
-        return `
-          <div class="reuse-channel-item">
-            <span>#${ch}</span>
-            <span class="chevron">◀</span>
-            <div class="reuse-trigger-list">
-              ${triggerListHtml}
-            </div>
-          </div>
-        `;
+        }).join('') : '<div class="copy-menu-empty">No triggers in this channel</div>';
+        return `<div class="copy-menu-group">#${escapeHtml(ch)}</div>${items}`;
       }).join('');
     }
 
@@ -2024,20 +2633,24 @@
       newTrigger.lastTriggered = 0;
       newTrigger.counterValue = newTrigger.counterStart || 0;
 
-      profiles[selectedChannel].triggers.push(newTrigger);
+      const triggers = profiles[selectedChannel].triggers;
+      triggers.push(newTrigger);
+      selectedTrigger = triggers.length - 1;
+      previewResponse = 0;
       saveProfiles();
-      renderTriggerEditor();
+      renderChannelView();
       renderChannelList();
 
-      document.getElementById('reuse-dropdown').classList.remove('active');
-      addLogEntry('info', `Copied trigger <strong>${escapeHtml(source.phrase)}</strong> from <span class="log-channel">#${fromChannel}</span>`);
+      addLogEntry('info', `Copied trigger <span class="log-phrase">${escapeHtml(source.phrase)}</span> from <span class="log-channel">#${fromChannel}</span>`);
     }
 
-    // Close dropdown on outside click
-    window.addEventListener('click', () => {
-      document.getElementById('reuse-dropdown').classList.remove('active');
+    // Close the copy menu on outside click
+    window.addEventListener('click', e => {
+      const menu = document.getElementById('copy-menu');
+      if (menu && !menu.contains(e.target)) menu.classList.remove('open');
     });
 
+    // ── Replies ──
     function addResponse(triggerIndex) {
       if (!selectedChannel) return;
       const t = profiles[selectedChannel].triggers[triggerIndex];
@@ -2050,21 +2663,21 @@
 
       t.responses.push({ text: '', weight: 1 });
       saveProfiles();
-      renderTriggerEditor();
+      refreshEditor();
+      refreshTriggerList();
+      const replies = document.querySelectorAll('.response-input');
+      replies[replies.length - 1].focus();
     }
 
     function removeResponse(triggerIndex, responseIndex) {
       if (!selectedChannel) return;
       const t = profiles[selectedChannel].triggers[triggerIndex];
-      if (!t) return;
-
-      if (!t.responses) return;
+      if (!t || !t.responses) return;
       t.responses.splice(responseIndex, 1);
-
-      // If we cleared all responses, we might want to keep one empty one or just leave it
-      // But we'll just save and re-render.
+      previewResponse = 0;
       saveProfiles();
-      renderTriggerEditor();
+      refreshEditor();
+      refreshTriggerList();
     }
 
     function updateResponse(triggerIndex, responseIndex, field, value) {
@@ -2084,13 +2697,22 @@
         }
       }
       saveProfiles();
+      if (field === 'weight') {
+        t.responses.forEach((r, ri) => {
+          const el = document.getElementById(`response-pct-${ri}`);
+          if (el) el.textContent = responsePercent(t, ri);
+        });
+      }
+      refreshTriggerList();
+      refreshPreview();
     }
 
+    // ── Toggles ──
     function togglePauseChannel() {
       if (!selectedChannel) return;
       profiles[selectedChannel].paused = !profiles[selectedChannel].paused;
       saveProfiles();
-      renderTriggerEditor();
+      renderChannelView();
       renderChannelList();
       addLogEntry('info', `${profiles[selectedChannel].paused ? 'Paused' : 'Resumed'} monitoring for <span class="log-channel">#${selectedChannel}</span>`);
     }
@@ -2101,7 +2723,8 @@
       if (!t) return;
       t.enabled = (t.enabled === false) ? true : false;
       saveProfiles();
-      renderTriggerEditor();
+      refreshTriggerList();
+      if (index === selectedTrigger) refreshEditor();
     }
 
     function toggleRespondToBot(index) {
@@ -2110,7 +2733,7 @@
       if (!t) return;
       t.respondToBot = !t.respondToBot;
       saveProfiles();
-      renderTriggerEditor();
+      refreshEditor();
     }
 
     function toggleCounter(index) {
@@ -2122,16 +2745,18 @@
         t.counterValue = t.counterStart || 0;
       }
       saveProfiles();
-      renderTriggerEditor();
+      refreshEditor();
+      refreshTriggerList();
     }
 
-    function toggleMatchAnywhere(index) {
+    function setMatchAnywhere(index, value) {
       if (!selectedChannel) return;
       const t = profiles[selectedChannel].triggers[index];
       if (!t) return;
-      t.matchAnywhere = !t.matchAnywhere;
+      t.matchAnywhere = value;
       saveProfiles();
-      renderTriggerEditor();
+      refreshEditor();
+      refreshTriggerList();
     }
 
     function resetCounter(index) {
@@ -2140,12 +2765,18 @@
       if (!t) return;
       t.counterValue = t.counterStart || 0;
       saveProfiles();
-      renderTriggerEditor();
+      refreshEditor();
+      refreshTriggerList();
+    }
+
+    function toggleAdvanced() {
+      advancedOpen = !advancedOpen;
+      refreshEditor();
     }
 
     function escapeAttr(str) {
-      if (!str) return '';
-      return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      if (str === undefined || str === null) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
     // ── IRC WebSocket ──
@@ -2304,7 +2935,7 @@
     // ── Message Handling ──
     async function handleChatMessage(sender, channel, message) {
       // Strip hidden "bypass" characters (U+034F used by us, U+E0000 appended by Chatterino/7TV)
-      // to avoid duplicate blocks \u2014 otherwise they'd show up as command arguments
+      // to avoid duplicate blocks — otherwise they'd show up as command arguments
       const cleanMessage = message.replace(/[\u034F\u{E0000}]/gu, '').trim();
 
       // Log FULL incoming chat messages to the activity panel
@@ -2374,8 +3005,7 @@
           // to fire independently without blocking the main loop.
           (async () => {
             addLogEntry('match',
-              `⚡ TRIGGER matched: ` +
-              `<span class="log-user">${escapeHtml(sender)}</span> said ` +
+              `<span class="log-user">${escapeHtml(sender)}</span> typed ` +
               `<span class="log-phrase">${escapeHtml(trigger.phrase)}</span> in ` +
               `<span class="log-channel">#${channel}</span>`
             );
@@ -2412,7 +3042,7 @@
               const sent = await sendMessage(channel, response);
               if (sent) {
                 addLogEntry('sent',
-                  `→ <span class="log-channel">#${channel}</span>: ${escapeHtml(response)}`
+                  `<span class="log-channel">#${channel}</span> ${escapeHtml(response)}`
                 );
               } else {
                 addLogEntry('error',
@@ -2569,7 +3199,12 @@
 
     function resolveFetch(path, ctx) {
       const fetched = ctx.fetched;
-      if (!fetched) return { missing: 'this trigger has no Fetch URL' };
+      if (!fetched) {
+        if (ctx.preview && ctx.trigger.fetchUrl && ctx.trigger.fetchUrl.trim()) {
+          return { value: `{${path ? 'fetch:' + path : 'fetch'}}` };
+        }
+        return { missing: 'this trigger has no fetch URL' };
+      }
       if (fetched.error) return { missing: `fetch failed (${fetched.error})` };
       if (!path) {
         const text = fetched.text.replace(/\s+/g, ' ').trim();
@@ -2615,10 +3250,13 @@
       ));
       if (!trigger.useCounter && changed.length === 0) return;
       saveProfiles();
-      // Re-render if this channel is selected
+      // Refresh what's on screen without re-rendering the editor (keeps focus while typing)
       if (selectedChannel === channel) {
-        if (trigger.useCounter) renderTriggerEditor();
-        else refreshVariablesCard();
+        refreshTriggerList();
+        const counterNow = document.getElementById('counter-now');
+        if (counterNow && currentTrigger() === trigger) counterNow.textContent = trigger.counterValue;
+        if (changed.length > 0) refreshVariablesView();
+        else refreshPreview();
       }
     }
 
@@ -2676,8 +3314,8 @@
       const t = profiles[selectedChannel].triggers[index];
       if (!t) return;
       if (!t.fetchUrl || !t.fetchUrl.trim()) {
-        fetchTestResults.set(t, { error: 'Enter a Fetch URL first.' });
-        renderTriggerEditor();
+        fetchTestResults.set(t, { error: 'Enter a URL first.' });
+        refreshFetchTest(t);
         return;
       }
 
@@ -2690,30 +3328,35 @@
       } catch (e) {
         if (!(e instanceof TemplateError)) throw e;
         fetchTestResults.set(t, { error: `${e.message} (add a fallback, e.g. {1|1})` });
-        renderTriggerEditor();
+        refreshFetchTest(t);
         return;
       }
 
       fetchTestResults.set(t, { pending: true, url });
-      renderTriggerEditor();
+      refreshFetchTest(t);
       fetchTestResults.set(t, { url, ...(await fetchData(url)) });
-      renderTriggerEditor();
+      refreshFetchTest(t);
+    }
+
+    function refreshFetchTest(trigger) {
+      if (currentTrigger() !== trigger) return;
+      const el = document.getElementById('fetch-test');
+      if (el) el.innerHTML = renderFetchTest(trigger);
+      refreshPreview();
     }
 
     function renderFetchTest(trigger) {
       const result = fetchTestResults.get(trigger);
       if (!result) return '';
-      const urlHtml = result.url ? ` · <span style="color:var(--text-muted);">${escapeHtml(result.url)}</span>` : '';
+      const urlHtml = result.url ? ` · <span class="fetch-test-url">${escapeHtml(result.url)}</span>` : '';
 
       if (result.pending) {
-        return `<div class="fetch-test"><div class="fetch-test-status" style="color:var(--text-muted);">⏳ Fetching…${urlHtml}</div></div>`;
+        return `<div class="fetch-test"><div class="fetch-test-status pending">Fetching…${urlHtml}</div></div>`;
       }
       if (result.error) {
-        return `<div class="fetch-test"><div class="fetch-test-status" style="color:var(--danger);">❌ ${escapeHtml(result.error)}${urlHtml}</div></div>`;
+        return `<div class="fetch-test"><div class="fetch-test-status error">${escapeHtml(result.error)}${urlHtml}</div></div>`;
       }
 
-      const statusColor = result.httpOk ? 'var(--success)' : 'var(--warning)';
-      const statusIcon = result.httpOk ? '✅' : '⚠️';
       let fields;
       if (result.json !== undefined && result.json !== null && typeof result.json === 'object') {
         fields = flattenJson(result.json).map(([path, value]) => [`{fetch:${path}}`, value]);
@@ -2723,12 +3366,12 @@
 
       return `
         <div class="fetch-test">
-          <div class="fetch-test-status" style="color:${statusColor};">${statusIcon} HTTP ${result.status} — click a field to copy its placeholder${urlHtml}</div>
+          <div class="fetch-test-status ${result.httpOk ? 'ok' : 'warn'}">HTTP ${result.status} · click a field to copy its placeholder${urlHtml}</div>
           ${fields.map(([placeholder, value]) => `
-            <div class="fetch-field" data-placeholder="${escapeAttr(placeholder)}" onclick="copyPlaceholder(this.dataset.placeholder)">
+            <button class="fetch-field" data-placeholder="${escapeAttr(placeholder)}" onclick="copyPlaceholder(this.dataset.placeholder)">
               <code>${escapeHtml(placeholder)}</code>
               <span>${escapeHtml(String(value))}</span>
-            </div>
+            </button>
           `).join('')}
         </div>
       `;
@@ -2777,7 +3420,7 @@
       }
       vars[name] = toVariableValue(valueInput.value || '0');
       saveProfiles();
-      refreshVariablesCard();
+      refreshVariablesView();
       document.getElementById('new-variable-name').focus();
     }
 
@@ -2786,14 +3429,17 @@
       if (!confirm(`Delete variable "${name}"?`)) return;
       delete getVariables(selectedChannel)[name];
       saveProfiles();
-      refreshVariablesCard();
+      refreshVariablesView();
     }
 
     function updateVariableValue(name, value) {
       if (!selectedChannel) return;
-      getVariables(selectedChannel)[name] = toVariableValue(value);
+      const vars = getVariables(selectedChannel);
+      const wasNumber = parseNumber(vars[name]) !== null;
+      vars[name] = toVariableValue(value);
       saveProfiles();
-      refreshVariablesCard();
+      // Only re-render when the −/+ buttons need to appear or disappear, so tabbing on keeps focus
+      if (wasNumber !== (parseNumber(vars[name]) !== null)) refreshVariablesView();
     }
 
     function adjustVariable(name, delta) {
@@ -2801,54 +3447,54 @@
       const vars = getVariables(selectedChannel);
       vars[name] = (parseNumber(vars[name]) ?? 0) + delta;
       saveProfiles();
-      refreshVariablesCard();
+      refreshVariablesView();
     }
 
-    // Re-renders only the variables card, so typing in trigger fields isn't interrupted
-    function refreshVariablesCard() {
-      document.getElementById('variables-container').innerHTML = renderVariablesCard();
+    function refreshVariablesView() {
+      refreshTabMeta();
+      refreshPreview();
+      if (activeTab !== 'vars') return;
+      const el = document.getElementById('tab-content');
+      if (el) el.innerHTML = renderVariablesTab();
     }
 
-    function renderVariablesCard() {
-      if (!selectedChannel) return '';
+    function renderVariablesTab() {
       const vars = getVariables(selectedChannel);
       const rows = Object.entries(vars).map(([name, value]) => {
         const isNumber = parseNumber(value) !== null;
         return `
-          <div class="variable-row">
-            <code class="variable-name">{var:${name}}</code>
-            <input type="text" value="${escapeAttr(String(value))}" onchange="updateVariableValue('${name}', this.value)">
-            ${isNumber ? `
-              <button class="btn btn-ghost" style="font-size:0.7rem; padding:0.2rem 0.45rem;" onclick="adjustVariable('${name}', -1)">−</button>
-              <button class="btn btn-ghost" style="font-size:0.7rem; padding:0.2rem 0.45rem;" onclick="adjustVariable('${name}', 1)">+</button>
-            ` : ''}
-            <button class="btn btn-icon btn-ghost" onclick="removeVariable('${name}')" title="Delete variable"
-              style="width:24px; height:24px; font-size:0.75rem; border-radius:4px;">×</button>
+          <div class="var-row">
+            <div class="var-token">{var:${name}}</div>
+            <input class="input" type="text" value="${escapeAttr(String(value))}" aria-label="Value of ${name}"
+              onchange="updateVariableValue('${name}', this.value)">
+            <div class="var-actions">
+              ${isNumber ? `
+                <button class="btn btn-square" onclick="adjustVariable('${name}', -1)" aria-label="Subtract 1 from ${name}">−</button>
+                <button class="btn btn-square" onclick="adjustVariable('${name}', 1)" aria-label="Add 1 to ${name}">+</button>
+              ` : ''}
+              <button class="btn btn-square btn-plain" onclick="removeVariable('${name}')" title="Delete variable"
+                aria-label="Delete ${name}">×</button>
+            </div>
           </div>
         `;
       }).join('');
 
       return `
-        <div class="ranked-mode-card">
-          <div class="ranked-mode-header">
-            <div style="display:flex; align-items:center; gap:0.6rem;">
-              <span style="font-size:1rem;">🧮</span>
-              <span style="font-weight:700; font-size:0.95rem;">Variables</span>
+        <div class="tab-page">
+          <div class="tab-page-inner">
+            <div class="page-intro">Values your replies can read and change. Use <span class="token">{var:name}</span> to show,
+              <span class="token">{var:name+1}</span> to add, <span class="token">{var:name-1}</span> to subtract,
+              <span class="token">{var:name=0}</span> to set.</div>
+            <div class="var-table">
+              ${rows || '<div class="var-empty">No variables yet. Add one below, e.g. <span class="token">streak</span>.</div>'}
+              <div class="var-add">
+                <input class="input" type="text" id="new-variable-name" placeholder="name, e.g. streak" aria-label="New variable name"
+                  onkeydown="if(event.key==='Enter') addVariable()">
+                <input class="input input-start" type="text" id="new-variable-value" placeholder="start value"
+                  aria-label="Start value" onkeydown="if(event.key==='Enter') addVariable()">
+                <button class="btn btn-primary" onclick="addVariable()">Add</button>
+              </div>
             </div>
-          </div>
-          ${rows || '<div style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">No variables yet.</div>'}
-          <div class="variable-row" style="margin-top:0.6rem;">
-            <input type="text" id="new-variable-name" placeholder="name, e.g. streak" style="flex:0.6;"
-              onkeydown="if(event.key==='Enter') addVariable()">
-            <input type="text" id="new-variable-value" placeholder="start value (0)" style="flex:0.4;"
-              onkeydown="if(event.key==='Enter') addVariable()">
-            <button class="btn btn-primary" style="font-size:0.78rem; padding:0.4rem 0.8rem;" onclick="addVariable()">Add</button>
-          </div>
-          <div style="font-size:0.7rem; color:var(--text-muted); display:flex; flex-wrap:wrap; gap:0.3rem 1rem; margin-top:0.4rem;">
-            <span><code style="color:var(--accent);">{var:streak}</code> &rarr; Read</span>
-            <span><code style="color:var(--accent);">{var:streak+1}</code> &rarr; Add 1, show new value</span>
-            <span><code style="color:var(--accent);">{var:streak-1}</code> &rarr; Subtract</span>
-            <span><code style="color:var(--accent);">{var:streak=0}</code> &rarr; Set</span>
           </div>
         </div>
       `;
@@ -2858,28 +3504,47 @@
     function addLogEntry(type, html) {
       const log = document.getElementById('activity-log');
       const empty = document.getElementById('activity-empty');
-      if (empty) empty.style.display = 'none';
+      if (empty) empty.remove();
 
       const now = new Date();
       const time = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
       const entry = document.createElement('div');
       entry.className = `log-entry ${type}`;
-      entry.innerHTML = `<span class="log-time">${time}</span>${html}`;
+      entry.innerHTML = `<span class="log-time">${time}</span><span class="log-kind">${type}</span><span class="log-text">${html}</span>`;
       log.appendChild(entry);
 
       // Keep max 200 entries
-      while (log.children.length > 201) {
-        log.removeChild(log.children[1]); // skip empty placeholder
+      while (log.children.length > 200) {
+        log.removeChild(log.firstChild);
       }
 
       // Scroll to bottom
       log.scrollTop = log.scrollHeight;
+
+      // The collapsed bar shows the latest entry
+      document.getElementById('activity-last-time').textContent = time;
+      document.getElementById('activity-last').innerHTML = html;
     }
 
     function clearLog() {
+      document.getElementById('activity-log').innerHTML = '<div class="activity-empty" id="activity-empty">Waiting for activity…</div>';
+      document.getElementById('activity-last-time').textContent = '';
+      document.getElementById('activity-last').textContent = 'Waiting for activity…';
+    }
+
+    function toggleLog() {
+      logOpen = !logOpen;
+      localStorage.setItem('ar_log_open', logOpen ? '1' : '0');
+      renderLogState();
+    }
+
+    function renderLogState() {
+      document.getElementById('activity').classList.toggle('open', logOpen);
+      document.querySelector('.activity-head').setAttribute('aria-expanded', logOpen);
+      document.getElementById('activity-toggle').textContent = logOpen ? 'Hide ▾' : 'Show log ▴';
       const log = document.getElementById('activity-log');
-      log.innerHTML = '<div class="activity-empty" id="activity-empty">Waiting for activity…<br>Triggers will appear here in real-time.</div>';
+      log.scrollTop = log.scrollHeight;
     }
 
     function escapeHtml(str) {
@@ -2890,38 +3555,26 @@
 
     // ── Connection UI ──
     function updateConnectionUI(status) {
-      const dot = document.getElementById('conn-dot');
-      const monitorDot = document.getElementById('monitor-dot');
-      const monitorStatus = document.getElementById('monitor-status');
-
-      dot.className = 'connection-dot';
-      monitorDot.className = 'connection-dot';
+      const pill = document.getElementById('status-pill');
+      const text = document.getElementById('status-text');
 
       const channelCount = Object.keys(profiles).length;
-      const triggerCount = Object.values(profiles).reduce((sum, p) => sum + p.triggers.filter(t => t.phrase).length, 0);
+      const triggerCount = Object.values(profiles).reduce(
+        (sum, p) => sum + p.triggers.filter(t => t.phrase && t.enabled !== false).length, 0);
 
+      pill.className = `status-pill ${status}`;
       switch (status) {
         case 'connected':
-          dot.classList.add('connected');
-          dot.title = 'Connected';
-          monitorDot.classList.add('connected');
-          monitorStatus.textContent = `Connected — monitoring ${channelCount} channel${channelCount !== 1 ? 's' : ''} with ${triggerCount} trigger${triggerCount !== 1 ? 's' : ''}`;
+          text.textContent = `Running · ${channelCount} channel${channelCount !== 1 ? 's' : ''} · ` +
+            `${triggerCount} active trigger${triggerCount !== 1 ? 's' : ''}`;
           break;
         case 'connecting':
-          dot.classList.add('connecting');
-          dot.title = 'Connecting…';
-          monitorDot.classList.add('connecting');
-          monitorStatus.textContent = 'Connecting to Twitch IRC…';
+          text.textContent = 'Connecting to Twitch…';
           break;
         default:
-          dot.title = 'Disconnected';
-          monitorStatus.textContent = 'Not connected';
+          text.textContent = 'Disconnected';
       }
-    }
-
-    // Re-update status bar when profiles change
-    function refreshMonitorStatus() {
-      if (ircConnected) updateConnectionUI('connected');
+      updateChannelBadge();
     }
 
     // ── Ranked Mode ──
@@ -2976,7 +3629,7 @@
             if (newGames > 0) {
               rm.currentCount = (rm.currentCount ?? rm.startCount ?? 0) + newGames;
               saveProfiles();
-              if (selectedChannel === channel) renderTriggerEditor();
+              if (selectedChannel === channel) refreshRankedCard();
               const count = rm.currentCount;
               const goal = rm.goal || 3000;
               addLogEntry('info',
@@ -3045,6 +3698,7 @@
       rm[field] = value;
       if (field === 'startCount') rm.currentCount = value;
       saveProfiles();
+      refreshRankedCard();
     }
 
     function toggleRankedModeEnabled() {
@@ -3053,7 +3707,8 @@
       if (!rm) return;
       rm.enabled = !rm.enabled;
       saveProfiles();
-      renderTriggerEditor();
+      renderTabContent();
+      refreshTabMeta();
       if (rm.enabled) {
         startRankedPolling();
         addLogEntry('info', `Ranked mode enabled for <span class="log-channel">#${selectedChannel}</span>`);
@@ -3066,7 +3721,7 @@
       if (!rm) return;
       rm.currentCount = rm.startCount ?? 0;
       saveProfiles();
-      renderTriggerEditor();
+      refreshRankedCard();
     }
 
     function adjustRankedCount(delta) {
@@ -3075,7 +3730,7 @@
       if (!rm) return;
       rm.currentCount = Math.max(0, (rm.currentCount ?? rm.startCount ?? 0) + delta);
       saveProfiles();
-      renderTriggerEditor();
+      refreshRankedCard();
     }
 
     async function pushRankedTitle() {
@@ -3089,13 +3744,13 @@
 
     async function testRankedEndpoint() {
       rankedTestResult = { ok: null, message: 'Fetching…' };
-      renderTriggerEditor();
+      refreshRankedCard();
 
       try {
         const res = await fetch(RANKED_DATA_URL, { headers: { 'Accept': 'application/json' } });
         if (!res.ok) {
           rankedTestResult = { ok: false, message: `HTTP ${res.status} — endpoint returned an error.` };
-          renderTriggerEditor();
+          refreshRankedCard();
           return;
         }
 
@@ -3104,123 +3759,91 @@
           data = await res.json();
         } catch (e) {
           rankedTestResult = { ok: false, message: 'Response is not valid JSON. The endpoint may be returning HTML instead.' };
-          renderTriggerEditor();
+          refreshRankedCard();
           return;
         }
 
         if (!data.latestGames) {
           const keys = Object.keys(data).slice(0, 6).join(', ');
           rankedTestResult = { ok: false, message: `No "latestGames" field found. Keys present: ${keys || '(none)'}` };
-          renderTriggerEditor();
+          refreshRankedCard();
           return;
         }
 
         if (!Array.isArray(data.latestGames)) {
           rankedTestResult = { ok: false, message: `"latestGames" exists but is not an array (got ${typeof data.latestGames}).` };
-          renderTriggerEditor();
+          refreshRankedCard();
           return;
         }
 
         const len = data.latestGames.length;
         const preview = data.latestGames.slice(0, 5).map(v => v ? 'W' : 'L').join(' ');
-        rankedTestResult = { ok: true, message: `${len} game${len !== 1 ? 's' : ''} in latest batch — ${preview}${len > 5 ? ' …' : ''}` };
-        renderTriggerEditor();
+        rankedTestResult = { ok: true, message: `Data source OK: ${len} game${len !== 1 ? 's' : ''} in latest batch — ${preview}${len > 5 ? ' …' : ''}` };
+        refreshRankedCard();
       } catch (e) {
         rankedTestResult = { ok: false, message: `Fetch failed: ${e.message}` };
-        renderTriggerEditor();
+        refreshRankedCard();
       }
     }
 
-    function renderRankedModeCard() {
-      if (!selectedChannel) return '';
+    function renderRankedTab() {
       const rm = getRankedMode(selectedChannel);
-      const currentCount = rm.currentCount ?? rm.startCount ?? 0;
-      const goal = rm.goal ?? 3000;
-      const titlePreview = `ränked. ${currentCount}/${goal}`;
-
-      const testHtml = (() => {
-        if (!rankedTestResult) return '';
-        if (rankedTestResult.ok === null) {
-          return `<div style="margin-top:0.6rem; font-size:0.8rem; color:var(--text-muted);">⏳ ${escapeHtml(rankedTestResult.message)}</div>`;
-        }
-        const color = rankedTestResult.ok ? 'var(--success)' : 'var(--danger)';
-        const icon = rankedTestResult.ok ? '✅' : '❌';
-        return `<div style="margin-top:0.6rem; font-size:0.8rem; color:${color};">${icon} ${escapeHtml(rankedTestResult.message)}</div>`;
-      })();
-
       return `
-        <div class="ranked-mode-card">
-          <div class="ranked-mode-header">
-            <div style="display:flex; align-items:center; gap:0.6rem;">
-              <span style="font-size:1rem;">🏆</span>
-              <span style="font-weight:700; font-size:0.95rem;">Ranked Title Mode</span>
+        <div class="tab-page">
+          <div class="tab-page-inner ranked-page">
+            <div class="ranked-head">
+              <div class="page-intro">Updates your stream title automatically each time a new ranked game shows up.</div>
+              ${switchHtml(rm.enabled, rm.enabled ? 'On' : 'Off', 'toggleRankedModeEnabled()')}
             </div>
-            <div class="toggle-wrapper" onclick="toggleRankedModeEnabled()">
-              <div class="toggle ${rm.enabled ? 'active' : ''}"></div>
-              <span>${rm.enabled ? 'Enabled' : 'Disabled'}</span>
+            <div class="card" id="ranked-card">${renderRankedCard()}</div>
+            <div class="form-grid">
+              <label class="form-label">Goal
+                <input class="input" type="number" value="${rm.goal ?? 3000}" min="1"
+                  onchange="updateRankedField('goal', parseInt(this.value) || 3000)">
+              </label>
+              <label class="form-label">Starting count
+                <input class="input" type="number" value="${rm.startCount ?? 0}" min="0"
+                  onchange="updateRankedField('startCount', parseInt(this.value) || 0)">
+              </label>
             </div>
           </div>
-          ${rm.enabled ? `
-            <div>
-              <div class="trigger-row">
-                <div class="trigger-field" style="flex:0.5;">
-                  <label>Goal</label>
-                  <input type="number" value="${goal}" min="1"
-                    onchange="updateRankedField('goal', parseInt(this.value) || 3000)">
-                </div>
-                <div class="trigger-field" style="flex:0.5;">
-                  <label>Starting Count</label>
-                  <input type="number" value="${rm.startCount ?? 0}" min="0"
-                    onchange="updateRankedField('startCount', parseInt(this.value) || 0)">
-                </div>
-              </div>
-              <div style="margin-top:0.6rem; padding:0.5rem 0.75rem; background:var(--surface2); border-radius:6px; display:flex; align-items:center; justify-content:space-between; gap:0.75rem;">
-                <div>
-                  <div style="font-size:0.7rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:0.2rem;">Data Source</div>
-                  <code style="font-size:0.72rem; color:var(--accent); word-break:break-all;">…workers.dev/api/progress/637272cf…</code>
-                </div>
-                <button class="btn btn-ghost" style="font-size:0.78rem; padding:0.35rem 0.75rem; white-space:nowrap;" onclick="testRankedEndpoint()">Test</button>
-              </div>
-              ${testHtml}
-              <div class="ranked-preview" style="margin-top:0.6rem;">
-                <span style="font-size:0.8rem; color:var(--text-muted);">Title preview</span>
-                <div style="display:flex; align-items:center; gap:0.5rem;">
-                  <span class="ranked-counter-display">${currentCount}</span>
-                  <span style="color:var(--text-muted); font-weight:600;">/ ${goal}</span>
-                  <button class="btn btn-ghost" style="font-size:0.7rem; padding:0.2rem 0.45rem;" onclick="resetRankedCount()" title="Reset to starting count">↺</button>
-                  <button class="btn btn-ghost" style="font-size:0.7rem; padding:0.2rem 0.45rem;" onclick="adjustRankedCount(-1)">−</button>
-                  <button class="btn btn-ghost" style="font-size:0.7rem; padding:0.2rem 0.45rem;" onclick="adjustRankedCount(1)">+</button>
-                </div>
-                <span class="ranked-preview-title">${escapeHtml(titlePreview)}</span>
-                <button class="btn btn-primary" style="font-size:0.78rem; padding:0.35rem 0.8rem;" onclick="pushRankedTitle()">Update Now</button>
-              </div>
-            </div>
-          ` : `<div style="font-size:0.82rem; color:var(--text-muted);">Enable to automatically update your stream title when new ranked games are detected.</div>`}
         </div>
       `;
     }
 
-    // Override save to also refresh status
-    const _originalSaveProfiles = saveProfiles;
-    // We inline refresh in saveProfiles instead
-    const _saveProfilesBase = () => {
-      localStorage.setItem(LS_PROFILES, JSON.stringify(profiles));
-      if (ircConnected) updateConnectionUI('connected');
-    };
-    // Replace saveProfiles
-    // (already defined above, let's patch it)
+    function renderRankedCard() {
+      const rm = getRankedMode(selectedChannel);
+      const currentCount = rm.currentCount ?? rm.startCount ?? 0;
+      const goal = rm.goal ?? 3000;
+      const pct = goal > 0 ? Math.min(100, currentCount / goal * 100) : 0;
 
-  </script>
+      let testHtml = '';
+      if (rankedTestResult) {
+        const cls = rankedTestResult.ok === null ? 'pending' : rankedTestResult.ok ? 'ok' : 'error';
+        testHtml = `<div class="test-result ${cls}">${escapeHtml(rankedTestResult.message)}</div>`;
+      }
 
-  <script>
-    // Patch saveProfiles to also refresh monitor bar
-    (function () {
-      const origSave = saveProfiles;
-      window.saveProfiles = function () {
-        localStorage.setItem(LS_PROFILES, JSON.stringify(profiles));
-        if (ircConnected) updateConnectionUI('connected');
-      };
-    })();
+      return `
+        <div class="section-label">Stream title</div>
+        <div class="ranked-title">${escapeHtml(`ränked. ${currentCount}/${goal}`)}</div>
+        <div class="progress"><div style="width:${pct.toFixed(1)}%"></div></div>
+        <div class="ranked-controls">
+          <button class="btn btn-square" onclick="adjustRankedCount(-1)" aria-label="Subtract 1">−</button>
+          <button class="btn btn-square" onclick="adjustRankedCount(1)" aria-label="Add 1">+</button>
+          <button class="btn" onclick="resetRankedCount()" title="Reset to the starting count">Reset</button>
+          <div class="spacer"></div>
+          <button class="btn" onclick="testRankedEndpoint()">Test data source</button>
+          <button class="btn btn-primary" onclick="pushRankedTitle()">Update title now</button>
+        </div>
+        ${testHtml}
+      `;
+    }
+
+    function refreshRankedCard() {
+      const el = document.getElementById('ranked-card');
+      if (el && profiles[selectedChannel]) el.innerHTML = renderRankedCard();
+    }
+
   </script>
 
 </body>
