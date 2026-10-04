@@ -1058,6 +1058,87 @@
       text-align: center;
     }
 
+    /* ── Variables ── */
+    .variable-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.45rem;
+    }
+
+    .variable-name {
+      min-width: 150px;
+      padding: 0.4rem 0.6rem;
+      background: var(--surface2);
+      border-radius: 6px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 0.8rem;
+      color: var(--accent);
+    }
+
+    .variable-row input {
+      flex: 1;
+      min-width: 0;
+      padding: 0.4rem 0.6rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.85rem;
+    }
+
+    .variable-row input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .variable-row input::placeholder {
+      color: var(--text-muted);
+    }
+
+    /* ── Fetch Test ── */
+    .fetch-test {
+      margin-top: 0.5rem;
+      padding: 0.5rem;
+      background: var(--surface2);
+      border-radius: 6px;
+      font-size: 0.78rem;
+      max-height: 240px;
+      overflow-y: auto;
+    }
+
+    .fetch-test-status {
+      padding: 0.15rem 0.4rem 0.35rem;
+      word-break: break-all;
+    }
+
+    .fetch-field {
+      display: flex;
+      gap: 0.75rem;
+      padding: 0.25rem 0.4rem;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .fetch-field:hover {
+      background: var(--surface3);
+    }
+
+    .fetch-field code {
+      color: var(--accent);
+      white-space: nowrap;
+      font-family: 'Consolas', 'Monaco', monospace;
+    }
+
+    .fetch-field span {
+      color: var(--text-dim);
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     /* Responsive */
     @media (max-width: 900px) {
       .activity-panel {
@@ -1232,6 +1313,7 @@
         <div class="login-feature"><span class="feat-icon">⚡</span> Set custom trigger phrases &amp; responses</div>
         <div class="login-feature"><span class="feat-icon">🔢</span> Optional auto-incrementing counters</div>
         <div class="login-feature"><span class="feat-icon">🔒</span> Restrict triggers to specific users</div>
+        <div class="login-feature"><span class="feat-icon">🧮</span> Variables &amp; live data from JSON APIs</div>
       </div>
 
       <button class="btn btn-twitch" id="twitch-login-btn" onclick="loginWithTwitch()">
@@ -1276,6 +1358,40 @@
         <li><code>{username}</code> &mdash; Replaced with the name of the user who triggered the command.</li>
       </ul>
       <p>Example: response <code>Hello {username}, you are visitor #{count}!</code></p>
+
+      <h3>Command Arguments</h3>
+      <ul>
+        <li><code>{1}</code>, <code>{2}</code>, &hellip; &mdash; The 1st, 2nd, &hellip; word after the trigger phrase.</li>
+        <li><code>{args}</code> &mdash; Everything after the trigger phrase.</li>
+      </ul>
+      <p>Add a fallback after <code>|</code> for when the value is missing: <code>{1|1}</code> uses <code>1</code> if
+        nobody typed a word after the command. Without a fallback, a missing value means the bot doesn't reply (the
+        Activity Log says why).</p>
+
+      <h3>Variables</h3>
+      <p>Create variables in the <strong>Variables</strong> panel below a channel's triggers, then use them in any
+        response:</p>
+      <ul>
+        <li><code>{var:streak}</code> &mdash; Current value.</li>
+        <li><code>{var:streak+1}</code> / <code>{var:streak-1}</code> &mdash; Add / subtract, then show the new value.</li>
+        <li><code>{var:streak=0}</code> &mdash; Set the value (numbers or text), then show it.</li>
+        <li><code>{var:streak+{1|1}}</code> &mdash; Placeholders can be nested: adds the number typed after the
+          command, or 1.</li>
+      </ul>
+      <p>Example: <code>!addstreak</code> &rarr; <code>Streak is now {var:streak+1}!</code> and
+        <code>!currentstreak</code> &rarr; <code>Current streak: {var:streak}</code></p>
+
+      <h3>Fetching Data</h3>
+      <p>Give a trigger a <strong>Fetch URL</strong> and the bot loads it every time the trigger fires. Placeholders work
+        in the URL too, e.g. <code>https://example.com/last?id={1|1}</code>.</p>
+      <ul>
+        <li><code>{fetch:location.streetView}</code> &mdash; A field from a JSON response (use <code>items.0.name</code>
+          for arrays).</li>
+        <li><code>{fetch}</code> &mdash; The whole response, for plain-text APIs.</li>
+        <li><code>{fetch:location.streetView|{fetch:error}}</code> &mdash; Fallbacks work here too.</li>
+      </ul>
+      <p>Use the <strong>Test</strong> button to see every field you can use. The API must allow cross-origin requests
+        (CORS), since the bot runs in your browser.</p>
 
       <h3>Storage</h3>
       <p>All channels, triggers, and counter values are saved in your browser's local storage. They persist across page
@@ -1353,6 +1469,7 @@
               <div class="icon">⚡</div>
               <p>No triggers yet. Add one to get started!</p>
             </div>
+            <div id="variables-container"></div>
             <div id="ranked-mode-container"></div>
           </div>
         </div>
@@ -1413,6 +1530,8 @@
     let previousRatingState = {}; // channelName -> last seen ELO rating (streak fallback)
     let rankedPollInterval = null;
     let rankedTestResult = null; // { ok, message } shown in the card
+    let fetchTestResults = new WeakMap(); // trigger -> fetch test result shown in its card
+    const FETCH_TIMEOUT_MS = 8000;
 
     // ── Init ──
     window.addEventListener('DOMContentLoaded', () => {
@@ -1688,7 +1807,7 @@
                   onchange="updateTrigger(${i}, 'phrase', this.value)">
               </div>
               <div class="trigger-field" style="flex:1;">
-                <label>Responses (use {count} or {username})</label>
+                <label>Responses (use placeholders below)</label>
                 <div class="responses-container">
                   ${(t.responses && t.responses.length > 0 ? t.responses : [{ text: t.response || '', weight: 1 }]).map((r, ri) => `
                     <div class="response-row">
@@ -1703,6 +1822,18 @@
                   `).join('')}
                 </div>
                 <button class="btn btn-add-response" onclick="addResponse(${i})">+ Add Random Alternative</button>
+              </div>
+            </div>
+            <div class="trigger-row" style="margin-top:0.6rem;">
+              <div class="trigger-field">
+                <label>Fetch URL <span style="font-weight:400; opacity:0.6;">(optional, then use {fetch:field.path} in responses)</span></label>
+                <div style="display:flex; gap:0.5rem;">
+                  <input type="text" value="${escapeAttr(t.fetchUrl || '')}" placeholder="https://api.example.com/data?id={1|1}"
+                    style="flex:1;" onchange="updateTrigger(${i}, 'fetchUrl', this.value)">
+                  <button class="btn btn-ghost" style="font-size:0.78rem; padding:0.35rem 0.75rem; flex-shrink:0;"
+                    onclick="testFetch(${i})" title="Fetch now and list the fields you can use">Test</button>
+                </div>
+                ${renderFetchTest(t)}
               </div>
             </div>
             <div class="trigger-row" style="margin-top:0.6rem;">
@@ -1733,9 +1864,13 @@
             </div>
             <div class="trigger-row" style="margin-top:0.6rem; opacity:0.75;">
               <div class="trigger-field">
-                <div style="font-size:0.7rem; color:var(--text-muted); display:flex; gap:1rem;">
+                <div style="font-size:0.7rem; color:var(--text-muted); display:flex; flex-wrap:wrap; gap:0.3rem 1rem;">
                   <span><code style="color:var(--accent);">{count}</code> &rarr; Current count</span>
                   <span><code style="color:var(--accent);">{username}</code> &rarr; Sender's name</span>
+                  <span><code style="color:var(--accent);">{1}</code> &rarr; 1st word after command</span>
+                  <span><code style="color:var(--accent);">{var:name+1}</code> &rarr; Variable</span>
+                  <span><code style="color:var(--accent);">{fetch:path}</code> &rarr; Fetched field</span>
+                  <span><code style="color:var(--accent);">{1|1}</code> &rarr; Fallback if missing</span>
                 </div>
               </div>
             </div>
@@ -1774,6 +1909,7 @@
       }).join('');
       } // end else (triggers.length > 0)
 
+      document.getElementById('variables-container').innerHTML = renderVariablesCard();
       document.getElementById('ranked-mode-container').innerHTML = renderRankedModeCard();
     }
 
@@ -1793,6 +1929,7 @@
         counterStart: 0,
         counterValue: 0,
         responses: [],
+        fetchUrl: '',
       });
       saveProfiles();
       renderTriggerEditor();
@@ -2166,8 +2303,9 @@
 
     // ── Message Handling ──
     async function handleChatMessage(sender, channel, message) {
-      // Strip hidden "bypass" characters (like U+034F used to avoid duplicate blocks)
-      const cleanMessage = message.replace(/\u034F/g, '').trim();
+      // Strip hidden "bypass" characters (U+034F used by us, U+E0000 appended by Chatterino/7TV)
+      // to avoid duplicate blocks \u2014 otherwise they'd show up as command arguments
+      const cleanMessage = message.replace(/[\u034F\u{E0000}]/gu, '').trim();
 
       // Log FULL incoming chat messages to the activity panel
       addLogEntry('chat',
@@ -2242,23 +2380,29 @@
               `<span class="log-channel">#${channel}</span>`
             );
 
-            let response = selectResponse(trigger);
-            // Replace placeholders
-            response = response.replace(/\{username\}/gi, sender);
-
-            // Handle counter
-            if (trigger.useCounter) {
-              if (trigger.counterValue === undefined) {
-                trigger.counterValue = trigger.counterStart || 0;
+            // Fill placeholders. Counter and variable changes only apply if every
+            // placeholder resolved, so a failed fetch doesn't bump anything.
+            const ctx = createTemplateContext(channel, sender, getCommandArgs(cleanMessage, trigger.phrase), trigger);
+            let response;
+            try {
+              if (trigger.fetchUrl && trigger.fetchUrl.trim()) {
+                const url = renderTemplate(trigger.fetchUrl.trim(), ctx, encodeURIComponent);
+                ctx.fetched = await fetchData(url);
+                if (ctx.fetched.error) {
+                  addLogEntry('error', `Fetch failed (${escapeHtml(ctx.fetched.error)}): ${escapeHtml(url)}`);
+                } else if (!ctx.fetched.httpOk) {
+                  addLogEntry('info', `Fetch returned HTTP ${ctx.fetched.status}: ${escapeHtml(url)}`);
+                }
               }
-              trigger.counterValue++;
-              response = response.replace(/\{count\}/gi, trigger.counterValue);
-              saveProfiles();
-              // Re-render if this channel is selected
-              if (selectedChannel === channel) {
-                renderTriggerEditor();
-              }
+              response = renderTemplate(selectResponse(trigger), ctx);
+            } catch (e) {
+              if (!(e instanceof TemplateError)) throw e;
+              addLogEntry('error',
+                `Not sent for <span class="log-phrase">${escapeHtml(trigger.phrase)}</span> — ${escapeHtml(e.message)}`
+              );
+              return;
             }
+            commitTemplateContext(channel, trigger, ctx);
 
             if (response) {
               // Wait for configured delay
@@ -2299,6 +2443,415 @@
         random -= weight;
       }
       return responses[0].text;
+    }
+
+    // ── Placeholders ──
+    // Syntax: {key} or {key|fallback}. Placeholders nest ({var:streak+{1|1}}), and
+    // resolved values are never re-parsed, so chat input can't inject placeholders.
+    // Unknown keys stay as literal text; a known key without a value uses the
+    // fallback, or aborts the response with a TemplateError when there is none.
+    class TemplateError extends Error { }
+
+    function parseTemplate(str) {
+      let pos = 0;
+      const failedAt = new Set(); // '{' positions with no closing '}' (keeps unbalanced input linear)
+
+      // Reads text and placeholders until a char in `stops` (outside nested braces) or the end.
+      function parseSequence(stops) {
+        const nodes = [];
+        let text = '';
+        while (pos < str.length && !stops.includes(str[pos])) {
+          if (str[pos] === '{' && !failedAt.has(pos)) {
+            const start = pos++;
+            const placeholder = parsePlaceholder();
+            if (placeholder) {
+              if (text) nodes.push(text);
+              text = '';
+              nodes.push(placeholder);
+              continue;
+            }
+            failedAt.add(start);
+            pos = start;
+          }
+          text += str[pos++];
+        }
+        if (text) nodes.push(text);
+        return nodes;
+      }
+
+      function parsePlaceholder() {
+        const key = parseSequence('}|');
+        let fallback = null;
+        if (str[pos] === '|') {
+          pos++;
+          fallback = parseSequence('}');
+        }
+        if (str[pos] !== '}') return null;
+        pos++;
+        return { key, fallback };
+      }
+
+      return parseSequence('');
+    }
+
+    // `wrap` is applied to each top-level placeholder result (e.g. encodeURIComponent for URLs)
+    function renderTemplate(str, ctx, wrap = v => v) {
+      return renderNodes(parseTemplate(str), ctx, wrap);
+    }
+
+    function renderNodes(nodes, ctx, wrap = v => v) {
+      let out = '';
+      for (const node of nodes) {
+        out += typeof node === 'string' ? node : wrap(evalPlaceholder(node, ctx));
+      }
+      return out;
+    }
+
+    function evalPlaceholder(node, ctx) {
+      const key = renderNodes(node.key, ctx);
+      const result = resolvePlaceholder(key.trim(), ctx);
+      if (result === null) {
+        return '{' + key + (node.fallback !== null ? '|' + renderNodes(node.fallback, ctx) : '') + '}';
+      }
+      if (result.missing === undefined) return result.value;
+      if (node.fallback !== null) return renderNodes(node.fallback, ctx); // only evaluated when needed
+      throw new TemplateError(`{${key}}: ${result.missing}`);
+    }
+
+    // Returns { value }, { missing: reason }, or null for an unknown key
+    function resolvePlaceholder(key, ctx) {
+      const lower = key.toLowerCase();
+      if (lower === 'username') return { value: ctx.sender };
+      if (lower === 'count') {
+        return ctx.trigger.useCounter ? { value: String(nextCounterValue(ctx.trigger)) } : null;
+      }
+      if (lower === 'args') {
+        return ctx.args.length > 0 ? { value: ctx.args.join(' ') } : { missing: 'nothing typed after the command' };
+      }
+      if (/^\d+$/.test(key)) {
+        const n = parseInt(key, 10);
+        return n >= 1 && ctx.args[n - 1] !== undefined
+          ? { value: ctx.args[n - 1] }
+          : { missing: `no word #${n} after the command` };
+      }
+      if (lower.startsWith('var:')) return resolveVariable(key.slice(4), ctx);
+      if (lower === 'fetch' || lower.startsWith('fetch:')) return resolveFetch(key.slice(6).trim(), ctx);
+      return null;
+    }
+
+    function resolveVariable(expr, ctx) {
+      const m = expr.match(/^\s*([a-z0-9_]+)\s*(?:(\+=?|-=?|=)([\s\S]*))?$/i);
+      if (!m) return null;
+      const [, rawName, op, operand = ''] = m;
+      const name = rawName.toLowerCase();
+      if (name === '__proto__') return null;
+      const current = Object.hasOwn(ctx.varChanges, name) ? ctx.varChanges[name]
+        : Object.hasOwn(ctx.vars, name) ? ctx.vars[name] : undefined;
+
+      if (!op) {
+        return current === undefined ? { missing: `variable "${name}" doesn't exist` } : { value: String(current) };
+      }
+
+      let next;
+      if (op === '=') {
+        next = toVariableValue(operand);
+      } else {
+        const amount = parseNumber(operand);
+        if (amount === null) return { missing: `"${operand.trim()}" is not a number` };
+        const base = current === undefined ? 0 : parseNumber(String(current));
+        if (base === null) return { missing: `variable "${name}" is not a number` };
+        // Round away float noise like 0.1 + 0.2 = 0.30000000000000004
+        next = Math.round((op[0] === '+' ? base + amount : base - amount) * 1e9) / 1e9;
+      }
+      ctx.varChanges[name] = next;
+      return { value: String(next) };
+    }
+
+    function resolveFetch(path, ctx) {
+      const fetched = ctx.fetched;
+      if (!fetched) return { missing: 'this trigger has no Fetch URL' };
+      if (fetched.error) return { missing: `fetch failed (${fetched.error})` };
+      if (!path) {
+        const text = fetched.text.replace(/\s+/g, ' ').trim();
+        if (!fetched.httpOk) return { missing: `fetch returned HTTP ${fetched.status}` };
+        return text ? { value: text } : { missing: 'fetch returned an empty response' };
+      }
+      if (fetched.json === undefined) return { missing: 'fetched response is not JSON' };
+      const value = getJsonPath(fetched.json, path);
+      if (value === undefined || value === null) return { missing: `no "${path}" in fetched data` };
+      return { value: (typeof value === 'object' ? JSON.stringify(value) : String(value)).replace(/\s+/g, ' ') };
+    }
+
+    // Supports dots and array indices: "location.streetView", "items.0.name", "items[0].name"
+    function getJsonPath(data, path) {
+      const parts = path.replace(/\[(\d+)\]/g, '.$1').split('.').filter(p => p !== '');
+      let current = data;
+      for (const part of parts) {
+        if (current === null || typeof current !== 'object' || !Object.prototype.hasOwnProperty.call(current, part)) {
+          return undefined;
+        }
+        current = current[part];
+      }
+      return current;
+    }
+
+    function createTemplateContext(channel, sender, args, trigger) {
+      return {
+        sender,
+        args,
+        trigger,
+        vars: getVariables(channel),
+        varChanges: {}, // staged until the whole response rendered
+        fetched: null,
+      };
+    }
+
+    function commitTemplateContext(channel, trigger, ctx) {
+      if (trigger.useCounter) trigger.counterValue = nextCounterValue(trigger);
+      const changed = Object.keys(ctx.varChanges);
+      Object.assign(getVariables(channel), ctx.varChanges);
+      changed.forEach(name => addLogEntry('info',
+        `🧮 <span class="log-channel">#${channel}</span> ${escapeHtml(name)} = ${escapeHtml(String(ctx.varChanges[name]))}`
+      ));
+      if (!trigger.useCounter && changed.length === 0) return;
+      saveProfiles();
+      // Re-render if this channel is selected
+      if (selectedChannel === channel) {
+        if (trigger.useCounter) renderTriggerEditor();
+        else refreshVariablesCard();
+      }
+    }
+
+    function nextCounterValue(trigger) {
+      return (trigger.counterValue ?? trigger.counterStart ?? 0) + 1;
+    }
+
+    // Words after the trigger phrase, e.g. "!gglastloc 2" -> ["2"]
+    function getCommandArgs(message, phrase) {
+      const phraseTrimmed = (phrase || '').trim();
+      const index = message.toLowerCase().indexOf(phraseTrimmed.toLowerCase());
+      if (index === -1) return [];
+      return message.slice(index + phraseTrimmed.length).trim().split(/\s+/).filter(Boolean);
+    }
+
+    function parseNumber(str) {
+      const s = String(str).trim();
+      if (s === '') return null;
+      const n = Number(s);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    // Variables hold numbers when the text looks like one, otherwise text
+    function toVariableValue(str) {
+      const n = parseNumber(str);
+      return n !== null ? n : String(str).trim();
+    }
+
+    // ── Fetch ──
+    // Returns { status, httpOk, text, json } or { error }. Non-2xx bodies are still
+    // parsed, since APIs often explain errors in JSON (usable as {fetch:error}).
+    async function fetchData(url) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+      try {
+        const res = await fetch(url, { signal: controller.signal });
+        const text = await res.text();
+        let json;
+        try {
+          json = JSON.parse(text);
+        } catch (e) {
+          json = undefined;
+        }
+        return { status: res.status, httpOk: res.ok, text, json };
+      } catch (e) {
+        if (e.name === 'AbortError') return { error: `timed out after ${FETCH_TIMEOUT_MS / 1000}s` };
+        return { error: 'network error, or the API does not allow cross-origin requests (CORS)' };
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    async function testFetch(index) {
+      if (!selectedChannel) return;
+      const t = profiles[selectedChannel].triggers[index];
+      if (!t) return;
+      if (!t.fetchUrl || !t.fetchUrl.trim()) {
+        fetchTestResults.set(t, { error: 'Enter a Fetch URL first.' });
+        renderTriggerEditor();
+        return;
+      }
+
+      // Test as if the command was sent with no words after it, so fallbacks like {1|1} apply.
+      // Variable changes in the URL are not saved.
+      const ctx = createTemplateContext(selectedChannel, username, [], t);
+      let url;
+      try {
+        url = renderTemplate(t.fetchUrl.trim(), ctx, encodeURIComponent);
+      } catch (e) {
+        if (!(e instanceof TemplateError)) throw e;
+        fetchTestResults.set(t, { error: `${e.message} (add a fallback, e.g. {1|1})` });
+        renderTriggerEditor();
+        return;
+      }
+
+      fetchTestResults.set(t, { pending: true, url });
+      renderTriggerEditor();
+      fetchTestResults.set(t, { url, ...(await fetchData(url)) });
+      renderTriggerEditor();
+    }
+
+    function renderFetchTest(trigger) {
+      const result = fetchTestResults.get(trigger);
+      if (!result) return '';
+      const urlHtml = result.url ? ` · <span style="color:var(--text-muted);">${escapeHtml(result.url)}</span>` : '';
+
+      if (result.pending) {
+        return `<div class="fetch-test"><div class="fetch-test-status" style="color:var(--text-muted);">⏳ Fetching…${urlHtml}</div></div>`;
+      }
+      if (result.error) {
+        return `<div class="fetch-test"><div class="fetch-test-status" style="color:var(--danger);">❌ ${escapeHtml(result.error)}${urlHtml}</div></div>`;
+      }
+
+      const statusColor = result.httpOk ? 'var(--success)' : 'var(--warning)';
+      const statusIcon = result.httpOk ? '✅' : '⚠️';
+      let fields;
+      if (result.json !== undefined && result.json !== null && typeof result.json === 'object') {
+        fields = flattenJson(result.json).map(([path, value]) => [`{fetch:${path}}`, value]);
+      } else {
+        fields = [['{fetch}', result.text.replace(/\s+/g, ' ').trim()]];
+      }
+
+      return `
+        <div class="fetch-test">
+          <div class="fetch-test-status" style="color:${statusColor};">${statusIcon} HTTP ${result.status} — click a field to copy its placeholder${urlHtml}</div>
+          ${fields.map(([placeholder, value]) => `
+            <div class="fetch-field" data-placeholder="${escapeAttr(placeholder)}" onclick="copyPlaceholder(this.dataset.placeholder)">
+              <code>${escapeHtml(placeholder)}</code>
+              <span>${escapeHtml(String(value))}</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    // [[path, leafValue], …] for every leaf in a JSON value
+    function flattenJson(value, prefix = '', out = []) {
+      if (out.length >= 100) return out;
+      if (value !== null && typeof value === 'object') {
+        const entries = Array.isArray(value) ? value.map((v, i) => [i, v]) : Object.entries(value);
+        if (entries.length === 0 && prefix) out.push([prefix, Array.isArray(value) ? '[]' : '{}']);
+        for (const [key, child] of entries) flattenJson(child, prefix ? `${prefix}.${key}` : String(key), out);
+      } else if (prefix) {
+        out.push([prefix, value]);
+      }
+      return out;
+    }
+
+    function copyPlaceholder(text) {
+      navigator.clipboard.writeText(text).then(
+        () => addLogEntry('info', `Copied <code>${escapeHtml(text)}</code> to clipboard`),
+        () => addLogEntry('error', `Could not copy to clipboard: ${escapeHtml(text)}`)
+      );
+    }
+
+    // ── Variables ──
+    function getVariables(channel) {
+      if (!profiles[channel].variables) profiles[channel].variables = {};
+      return profiles[channel].variables;
+    }
+
+    function addVariable() {
+      if (!selectedChannel) return;
+      const nameInput = document.getElementById('new-variable-name');
+      const valueInput = document.getElementById('new-variable-value');
+      const name = nameInput.value.trim().toLowerCase();
+      if (!name) return;
+      if (!/^[a-z0-9_]+$/.test(name) || name === '__proto__') {
+        alert('Variable names can only use letters, numbers and _');
+        return;
+      }
+      const vars = getVariables(selectedChannel);
+      if (Object.hasOwn(vars, name)) {
+        alert(`Variable "${name}" already exists`);
+        return;
+      }
+      vars[name] = toVariableValue(valueInput.value || '0');
+      saveProfiles();
+      refreshVariablesCard();
+      document.getElementById('new-variable-name').focus();
+    }
+
+    function removeVariable(name) {
+      if (!selectedChannel) return;
+      if (!confirm(`Delete variable "${name}"?`)) return;
+      delete getVariables(selectedChannel)[name];
+      saveProfiles();
+      refreshVariablesCard();
+    }
+
+    function updateVariableValue(name, value) {
+      if (!selectedChannel) return;
+      getVariables(selectedChannel)[name] = toVariableValue(value);
+      saveProfiles();
+      refreshVariablesCard();
+    }
+
+    function adjustVariable(name, delta) {
+      if (!selectedChannel) return;
+      const vars = getVariables(selectedChannel);
+      vars[name] = (parseNumber(vars[name]) ?? 0) + delta;
+      saveProfiles();
+      refreshVariablesCard();
+    }
+
+    // Re-renders only the variables card, so typing in trigger fields isn't interrupted
+    function refreshVariablesCard() {
+      document.getElementById('variables-container').innerHTML = renderVariablesCard();
+    }
+
+    function renderVariablesCard() {
+      if (!selectedChannel) return '';
+      const vars = getVariables(selectedChannel);
+      const rows = Object.entries(vars).map(([name, value]) => {
+        const isNumber = parseNumber(value) !== null;
+        return `
+          <div class="variable-row">
+            <code class="variable-name">{var:${name}}</code>
+            <input type="text" value="${escapeAttr(String(value))}" onchange="updateVariableValue('${name}', this.value)">
+            ${isNumber ? `
+              <button class="btn btn-ghost" style="font-size:0.7rem; padding:0.2rem 0.45rem;" onclick="adjustVariable('${name}', -1)">−</button>
+              <button class="btn btn-ghost" style="font-size:0.7rem; padding:0.2rem 0.45rem;" onclick="adjustVariable('${name}', 1)">+</button>
+            ` : ''}
+            <button class="btn btn-icon btn-ghost" onclick="removeVariable('${name}')" title="Delete variable"
+              style="width:24px; height:24px; font-size:0.75rem; border-radius:4px;">×</button>
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div class="ranked-mode-card">
+          <div class="ranked-mode-header">
+            <div style="display:flex; align-items:center; gap:0.6rem;">
+              <span style="font-size:1rem;">🧮</span>
+              <span style="font-weight:700; font-size:0.95rem;">Variables</span>
+            </div>
+          </div>
+          ${rows || '<div style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.6rem;">No variables yet.</div>'}
+          <div class="variable-row" style="margin-top:0.6rem;">
+            <input type="text" id="new-variable-name" placeholder="name, e.g. streak" style="flex:0.6;"
+              onkeydown="if(event.key==='Enter') addVariable()">
+            <input type="text" id="new-variable-value" placeholder="start value (0)" style="flex:0.4;"
+              onkeydown="if(event.key==='Enter') addVariable()">
+            <button class="btn btn-primary" style="font-size:0.78rem; padding:0.4rem 0.8rem;" onclick="addVariable()">Add</button>
+          </div>
+          <div style="font-size:0.7rem; color:var(--text-muted); display:flex; flex-wrap:wrap; gap:0.3rem 1rem; margin-top:0.4rem;">
+            <span><code style="color:var(--accent);">{var:streak}</code> &rarr; Read</span>
+            <span><code style="color:var(--accent);">{var:streak+1}</code> &rarr; Add 1, show new value</span>
+            <span><code style="color:var(--accent);">{var:streak-1}</code> &rarr; Subtract</span>
+            <span><code style="color:var(--accent);">{var:streak=0}</code> &rarr; Set</span>
+          </div>
+        </div>
+      `;
     }
 
     // ── Activity Log ──
